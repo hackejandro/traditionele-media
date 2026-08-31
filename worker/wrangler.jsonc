@@ -7,8 +7,16 @@
   "kv_namespaces": [
     { "binding": "COMMONPLACE" }
   ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "COLLECTOR", "class_name": "CommonplaceCollector" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["CommonplaceCollector"] }
+  ],
   "triggers": {
-    "crons": ["0 * * * *"]
+    "crons": ["*/15 * * * *"]
   },
   "observability": {
     "enabled": true,

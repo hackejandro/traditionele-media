@@ -1,10 +1,12 @@
+import { DurableObject } from "cloudflare:workers";
+
 const ORIGIN = "https://hackejandro.github.io";
 const JETSTREAM = "wss://jetstream2.us-east.bsky.network/subscribe";
 const API = "https://public.api.bsky.app/xrpc";
-const KEYS = { snapshot: "feed:v2", candidates: "candidates:v2", cursor: "cursor:v2" };
+const SNAPSHOT_KEY = "feed:v3";
 const DAY = 24 * 60 * 60 * 1000;
+const SNAPSHOT_INTERVAL = 15 * 60 * 1000;
 const MAX_CANDIDATES = 300;
-const MAX_ITEMS = 20;
 const MAX_MESSAGES = 20;
 
 type Link = { url: string; title: string; description: string };
@@ -13,6 +15,10 @@ type Reply = { uri: string; did: string; rkey: string; text: string; createdAt: 
 type FeedPost = Candidate & { replies: Reply[]; handle?: string; displayName?: string };
 type FeedItem = { url: string; domain: string; title: string; description: string; updatedAt: number; posts: FeedPost[] };
 type Snapshot = { generatedAt: string; expiresAfterHours: 24; items: FeedItem[] };
+type CandidateRow = {
+  uri: string; did: string; rkey: string; text: string; created_at: number;
+  url: string; title: string; description: string;
+};
 type PostView = {
   uri?: string; replyCount?: number; indexedAt?: string;
   record?: { text?: string; createdAt?: string; langs?: string[] };
@@ -27,18 +33,20 @@ type JetEvent = {
   } };
 };
 
-function headers(): HeadersInit {
+function responseHeaders(): HeadersInit {
   return { "Access-Control-Allow-Origin": ORIGIN, "Cache-Control": "public, max-age=60, s-maxage=300" };
 }
 
 function isDutch(langs: unknown): boolean {
-  return Array.isArray(langs) && langs.some((lang) => typeof lang === "string" && lang.toLowerCase().split("-")[0] === "nl");
+  return Array.isArray(langs) && langs.some((lang) =>
+    typeof lang === "string" && lang.toLowerCase().split("-")[0] === "nl"
+  );
 }
 
 function cleanUrl(value: string): string | null {
   try {
     const url = new URL(value);
-    if (!['http:', 'https:'].includes(url.protocol)) return null;
+    if (!["http:", "https:"].includes(url.protocol)) return null;
     url.hash = "";
     for (const key of [...url.searchParams.keys()]) {
       if (key.startsWith("utm_") || ["fbclid", "gclid"].includes(key)) url.searchParams.delete(key);
@@ -77,49 +85,6 @@ function candidateFrom(event: JetEvent): Candidate | null {
     did: event.did, rkey: commit.rkey, text: record.text ?? "",
     createdAt: record.createdAt ?? new Date().toISOString(), links,
   };
-}
-
-function isCandidate(value: unknown): value is Candidate {
-  if (!value || typeof value !== "object") return false;
-  const post = value as Record<string, unknown>;
-  return typeof post.uri === "string" && typeof post.did === "string" && typeof post.rkey === "string" &&
-    typeof post.createdAt === "string" && Array.isArray(post.links);
-}
-
-async function collect(cursor: number): Promise<{ posts: Candidate[]; cursor: number }> {
-  const url = new URL(JETSTREAM);
-  url.searchParams.append("wantedCollections", "app.bsky.feed.post");
-  url.searchParams.set("maxMessageSizeBytes", "50000");
-  url.searchParams.set("cursor", String(cursor));
-  const socket = new WebSocket(url);
-  const posts = new Map<string, Candidate>();
-  let latest = cursor;
-  await new Promise<void>((resolve) => {
-    let complete = false;
-    const finish = () => {
-      if (complete) return;
-      complete = true;
-      clearTimeout(timer);
-      if ([WebSocket.OPEN, WebSocket.CONNECTING].includes(socket.readyState)) socket.close(1000, "Momentopname compleet");
-      resolve();
-    };
-    const timer = setTimeout(finish, 90_000);
-    socket.addEventListener("message", (message) => {
-      if (typeof message.data !== "string") return;
-      try {
-        const value: unknown = JSON.parse(message.data);
-        if (!value || typeof value !== "object") return;
-        const event = value as JetEvent;
-        latest = Math.max(latest, event.time_us ?? 0);
-        const post = candidateFrom(event);
-        if (post) posts.set(post.uri, post);
-        if ((event.time_us ?? 0) >= (Date.now() - 2_000) * 1000) finish();
-      } catch { /* Een ongeldig frame wordt genegeerd. */ }
-    });
-    socket.addEventListener("error", finish);
-    socket.addEventListener("close", finish);
-  });
-  return { posts: [...posts.values()], cursor: latest };
 }
 
 async function postViews(posts: Candidate[]): Promise<Map<string, PostView>> {
@@ -179,90 +144,245 @@ async function hydrate(candidate: Candidate): Promise<FeedPost | null> {
   return { ...candidate, text: root.record?.text ?? candidate.text, replies, handle: root.author?.handle, displayName: root.author?.displayName };
 }
 
-async function refresh(env: Env): Promise<Snapshot> {
-  const now = Date.now();
-  const stored: unknown = await env.COMMONPLACE.get(KEYS.candidates, "json");
-  const old = Array.isArray(stored) ? stored.filter(isCandidate) : [];
-  const savedCursor = Number(await env.COMMONPLACE.get(KEYS.cursor));
-  const earliest = (now - 70 * 60 * 1000) * 1000;
-  const cursor = Number.isFinite(savedCursor) ? Math.max(savedCursor - 60_000_000, earliest) : earliest;
-  const incoming = await collect(cursor);
-  const unique = new Map<string, Candidate>();
-  for (const post of [...old, ...incoming.posts]) {
-    const created = new Date(post.createdAt).getTime();
-    if (Number.isFinite(created) && created >= now - DAY) unique.set(post.uri, post);
-  }
-  const candidates = [...unique.values()]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, MAX_CANDIDATES);
-  const views = await postViews(candidates);
-  const grouped = new Map<string, { link: Link; posts: Candidate[]; score: number }>();
-  for (const post of candidates) {
-    const replyCount = views.get(post.uri)?.replyCount ?? 0;
-    if (!replyCount) continue;
-    for (const link of post.links) {
-      const group = grouped.get(link.url) ?? { link: { ...link }, posts: [], score: 0 };
-      if (link.title) group.link.title = link.title;
-      if (link.description) group.link.description = link.description;
-      group.posts.push(post);
-      group.score += 1000 + replyCount;
-      grouped.set(link.url, group);
-    }
-  }
-  const groups = [...grouped.values()].sort((a, b) => b.score - a.score).slice(0, MAX_ITEMS);
-  const roots = groups.flatMap((group) => group.posts).slice(0, MAX_ITEMS);
-  const hydrated = new Map<string, FeedPost>();
-  for (let offset = 0; offset < roots.length; offset += 4) {
-    for (const post of await Promise.all(roots.slice(offset, offset + 4).map(hydrate))) if (post) hydrated.set(post.uri, post);
-  }
-  const items: FeedItem[] = [];
-  for (const group of groups) {
-    const posts = group.posts.map((post) => hydrated.get(post.uri)).filter((post): post is FeedPost => Boolean(post));
-    if (!posts.length) continue;
-    const parsed = new URL(group.link.url);
-    items.push({
-      url: group.link.url, domain: parsed.hostname.replace(/^www\./, ""), title: group.link.title,
-      description: group.link.description, posts,
-      updatedAt: Math.max(...posts.map((post) => new Date(post.createdAt).getTime())),
+export class CommonplaceCollector extends DurableObject<Env> {
+  private socket: WebSocket | null = null;
+  private latestCursor = 0;
+  private framesSinceCursorWrite = 0;
+  private building = false;
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.ctx.blockConcurrencyWhile(async () => {
+      this.ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS candidates (
+          uri TEXT NOT NULL,
+          url TEXT NOT NULL,
+          did TEXT NOT NULL,
+          rkey TEXT NOT NULL,
+          text TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT NOT NULL,
+          PRIMARY KEY (uri, url)
+        );
+        CREATE INDEX IF NOT EXISTS candidates_created_at ON candidates(created_at DESC);
+        CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+      `);
+      const cursor = this.ctx.storage.sql.exec<{ value: string }>("SELECT value FROM meta WHERE key = 'cursor'").toArray()[0];
+      this.latestCursor = Number(cursor?.value) || 0;
     });
   }
-  items.sort((a, b) => b.posts.length - a.posts.length ||
-    b.posts.reduce((n, p) => n + p.replies.length, 0) - a.posts.reduce((n, p) => n + p.replies.length, 0) || b.updatedAt - a.updatedAt);
-  let remainingMessages = MAX_MESSAGES;
-  const limitedItems: FeedItem[] = [];
-  for (const item of items.slice(0, MAX_ITEMS)) {
-    const posts: FeedPost[] = [];
-    for (const post of item.posts) {
-      if (remainingMessages < 2) break;
-      const replies = post.replies.slice(0, remainingMessages - 1);
-      if (!replies.length) continue;
-      posts.push({ ...post, replies });
-      remainingMessages -= 1 + replies.length;
-    }
-    if (posts.length) limitedItems.push({ ...item, posts });
-    if (remainingMessages < 2) break;
+
+  async ensureStarted(): Promise<void> {
+    if (!this.socket || this.socket.readyState > WebSocket.OPEN) this.connect();
+    const alarm = await this.ctx.storage.getAlarm();
+    if (alarm === null) await this.ctx.storage.setAlarm(Date.now() + 60_000);
   }
-  const snapshot: Snapshot = { generatedAt: new Date().toISOString(), expiresAfterHours: 24, items: limitedItems };
-  await Promise.all([
-    env.COMMONPLACE.put(KEYS.candidates, JSON.stringify(candidates)),
-    env.COMMONPLACE.put(KEYS.cursor, String(incoming.cursor)),
-    env.COMMONPLACE.put(KEYS.snapshot, JSON.stringify(snapshot)),
-  ]);
-  console.log(JSON.stringify({ event: "snapshot_refreshed", candidates: candidates.length, items: snapshot.items.length }));
-  return snapshot;
+
+  async tick(): Promise<void> {
+    await this.ensureStarted();
+    await this.refreshIfDue();
+  }
+
+  async refreshNow(): Promise<void> {
+    await this.ensureStarted();
+    await this.buildSnapshot();
+  }
+
+  async status(): Promise<{ connected: boolean; candidates: number; lastEventAt: string | null; generatedAt: string | null }> {
+    const count = this.ctx.storage.sql.exec<{ count: number }>("SELECT COUNT(DISTINCT uri) AS count FROM candidates").one().count;
+    const lastEvent = this.ctx.storage.sql.exec<{ value: string }>("SELECT value FROM meta WHERE key = 'last_event_at'").toArray()[0];
+    const snapshot = await this.env.COMMONPLACE.get<Snapshot>(SNAPSHOT_KEY, "json");
+    return {
+      connected: this.socket?.readyState === WebSocket.OPEN,
+      candidates: count,
+      lastEventAt: lastEvent?.value ?? null,
+      generatedAt: snapshot?.generatedAt ?? null,
+    };
+  }
+
+  async alarm(): Promise<void> {
+    await this.ensureStarted();
+    await this.refreshIfDue();
+    await this.ctx.storage.setAlarm(Date.now() + 60_000);
+  }
+
+  private connect(): void {
+    if (this.socket && this.socket.readyState <= WebSocket.OPEN) return;
+    const url = new URL(JETSTREAM);
+    url.searchParams.append("wantedCollections", "app.bsky.feed.post");
+    url.searchParams.set("maxMessageSizeBytes", "50000");
+    const fallback = (Date.now() - 5 * 60 * 1000) * 1000;
+    url.searchParams.set("cursor", String(Math.max(this.latestCursor - 60_000_000, fallback)));
+    const socket = new WebSocket(url);
+    this.socket = socket;
+    socket.addEventListener("message", (message) => this.handleMessage(message));
+    socket.addEventListener("close", () => this.handleDisconnect(socket));
+    socket.addEventListener("error", () => this.handleDisconnect(socket));
+  }
+
+  private handleMessage(message: MessageEvent): void {
+    if (typeof message.data !== "string") return;
+    try {
+      const value: unknown = JSON.parse(message.data);
+      if (!value || typeof value !== "object") return;
+      const event = value as JetEvent;
+      if (event.time_us) {
+        this.latestCursor = Math.max(this.latestCursor, event.time_us);
+        this.framesSinceCursorWrite += 1;
+      }
+      const candidate = candidateFrom(event);
+      if (candidate) this.storeCandidate(candidate);
+      if (candidate || this.framesSinceCursorWrite >= 500) this.persistCursor();
+    } catch { /* Een ongeldig Jetstream-frame wordt genegeerd. */ }
+  }
+
+  private handleDisconnect(socket: WebSocket): void {
+    if (this.socket !== socket) return;
+    this.socket = null;
+    this.persistCursor();
+    this.ctx.waitUntil(this.ctx.storage.setAlarm(Date.now() + 2_000));
+  }
+
+  private persistCursor(): void {
+    if (!this.latestCursor) return;
+    this.ctx.storage.sql.exec(
+      "INSERT INTO meta(key, value) VALUES('cursor', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      String(this.latestCursor),
+    );
+    this.framesSinceCursorWrite = 0;
+  }
+
+  private storeCandidate(candidate: Candidate): void {
+    const createdAt = new Date(candidate.createdAt).getTime();
+    if (!Number.isFinite(createdAt) || createdAt < Date.now() - DAY) return;
+    for (const link of candidate.links) {
+      this.ctx.storage.sql.exec(
+        `INSERT INTO candidates(uri, url, did, rkey, text, created_at, title, description)
+         VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(uri, url) DO UPDATE SET
+           text = excluded.text, created_at = excluded.created_at,
+           title = excluded.title, description = excluded.description`,
+        candidate.uri, link.url, candidate.did, candidate.rkey, candidate.text,
+        createdAt, link.title, link.description,
+      );
+    }
+    this.ctx.storage.sql.exec(
+      "INSERT INTO meta(key, value) VALUES('last_event_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      new Date().toISOString(),
+    );
+  }
+
+  private async refreshIfDue(): Promise<void> {
+    const row = this.ctx.storage.sql.exec<{ value: string }>("SELECT value FROM meta WHERE key = 'snapshot_at'").toArray()[0];
+    if (!row || Date.now() - Number(row.value) >= SNAPSHOT_INTERVAL) await this.buildSnapshot();
+  }
+
+  private async buildSnapshot(): Promise<void> {
+    if (this.building) return;
+    this.building = true;
+    try {
+      const cutoff = Date.now() - DAY;
+      this.ctx.storage.sql.exec("DELETE FROM candidates WHERE created_at < ?", cutoff);
+      const rows = this.ctx.storage.sql.exec<CandidateRow>(
+        "SELECT uri, did, rkey, text, created_at, url, title, description FROM candidates ORDER BY created_at DESC LIMIT ?",
+        MAX_CANDIDATES,
+      ).toArray();
+      const byUri = new Map<string, Candidate>();
+      for (const row of rows) {
+        const post = byUri.get(row.uri) ?? {
+          uri: row.uri, did: row.did, rkey: row.rkey, text: row.text,
+          createdAt: new Date(row.created_at).toISOString(), links: [],
+        };
+        post.links.push({ url: row.url, title: row.title, description: row.description });
+        byUri.set(row.uri, post);
+      }
+      const candidates = [...byUri.values()];
+      const views = await postViews(candidates);
+      const grouped = new Map<string, { link: Link; posts: Candidate[]; score: number }>();
+      for (const post of candidates) {
+        const replyCount = views.get(post.uri)?.replyCount ?? 0;
+        if (!replyCount) continue;
+        for (const link of post.links) {
+          const group = grouped.get(link.url) ?? { link: { ...link }, posts: [], score: 0 };
+          if (link.title) group.link.title = link.title;
+          if (link.description) group.link.description = link.description;
+          group.posts.push(post);
+          group.score += 1000 + replyCount;
+          grouped.set(link.url, group);
+        }
+      }
+      const groups = [...grouped.values()].sort((a, b) => b.score - a.score).slice(0, 20);
+      const roots = groups.flatMap((group) => group.posts).slice(0, 20);
+      const hydrated = new Map<string, FeedPost>();
+      for (let offset = 0; offset < roots.length; offset += 4) {
+        for (const post of await Promise.all(roots.slice(offset, offset + 4).map(hydrate))) {
+          if (post) hydrated.set(post.uri, post);
+        }
+      }
+      const items: FeedItem[] = [];
+      for (const group of groups) {
+        const posts = group.posts.map((post) => hydrated.get(post.uri)).filter((post): post is FeedPost => Boolean(post));
+        if (!posts.length) continue;
+        const parsed = new URL(group.link.url);
+        items.push({
+          url: group.link.url, domain: parsed.hostname.replace(/^www\./, ""),
+          title: group.link.title, description: group.link.description, posts,
+          updatedAt: Math.max(...posts.map((post) => new Date(post.createdAt).getTime())),
+        });
+      }
+      items.sort((a, b) => b.posts.length - a.posts.length ||
+        b.posts.reduce((n, p) => n + p.replies.length, 0) - a.posts.reduce((n, p) => n + p.replies.length, 0) ||
+        b.updatedAt - a.updatedAt);
+      let remaining = MAX_MESSAGES;
+      const limited: FeedItem[] = [];
+      for (const item of items) {
+        const posts: FeedPost[] = [];
+        for (const post of item.posts) {
+          if (remaining < 2) break;
+          const replies = post.replies.slice(0, remaining - 1);
+          if (!replies.length) continue;
+          posts.push({ ...post, replies });
+          remaining -= 1 + replies.length;
+        }
+        if (posts.length) limited.push({ ...item, posts });
+        if (remaining < 2) break;
+      }
+      const snapshot: Snapshot = { generatedAt: new Date().toISOString(), expiresAfterHours: 24, items: limited };
+      await this.env.COMMONPLACE.put(SNAPSHOT_KEY, JSON.stringify(snapshot));
+      this.ctx.storage.sql.exec(
+        "INSERT INTO meta(key, value) VALUES('snapshot_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        String(Date.now()),
+      );
+      console.log(JSON.stringify({ event: "snapshot_refreshed", candidates: candidates.length, items: limited.length }));
+    } finally {
+      this.building = false;
+    }
+  }
+}
+
+function collector(env: Env): DurableObjectStub<CommonplaceCollector> {
+  return env.COLLECTOR.getByName("nederland");
 }
 
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const path = new URL(request.url).pathname;
-    const snapshot = await env.COMMONPLACE.get<Snapshot>(KEYS.snapshot, "json");
-    if (path === "/health") return Response.json({ ok: true, generatedAt: snapshot?.generatedAt ?? null }, { headers: headers() });
-    if (path !== "/feed") return new Response("Commonplace gedeelde feed");
-    if (!snapshot) {
-      ctx.waitUntil(refresh(env));
-      return Response.json({ generatedAt: null, expiresAfterHours: 24, items: [] }, { status: 202, headers: headers() });
+    const instance = collector(env);
+    if (path === "/health") {
+      const state = await instance.status();
+      return Response.json({ ok: true, ...state }, { headers: responseHeaders() });
     }
-    return Response.json(snapshot, { headers: headers() });
+    if (path !== "/feed") return new Response("Commonplace gedeelde feed");
+    ctx.waitUntil(instance.ensureStarted());
+    const snapshot = await env.COMMONPLACE.get<Snapshot>(SNAPSHOT_KEY, "json");
+    if (!snapshot) {
+      ctx.waitUntil(instance.refreshNow());
+      return Response.json({ generatedAt: null, expiresAfterHours: 24, items: [] }, { status: 202, headers: responseHeaders() });
+    }
+    return Response.json(snapshot, { headers: responseHeaders() });
   },
-  async scheduled(_controller, env): Promise<void> { await refresh(env); },
+  async scheduled(_controller, env): Promise<void> {
+    await collector(env).tick();
+  },
 } satisfies ExportedHandler<Env>;
