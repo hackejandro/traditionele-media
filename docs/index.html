@@ -34,7 +34,7 @@
       <div class="conversation-list"><h2>Berichten over deze link</h2><div id="conversations"></div></div>
     </section>
   </main>
-  <script>
+  <script type="text/plain" data-obsolete-local-feed>
     const STREAM_URL='wss://commonplace-stream.alejandrotauber.workers.dev/stream';
     const STORAGE_KEY='commonplace-live-links-v1';
     const MAX_AGE=24*60*60*1000;
@@ -250,5 +250,6 @@
     document.getElementById('brand').addEventListener('click',showFeed);
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(!socket||socket.readyState>1))connect()});
   </script>
+  <script src="./app.js"></script>
 </body>
 </html>

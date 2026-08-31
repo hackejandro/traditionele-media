@@ -18,7 +18,7 @@ De zichtbare inhoud komt uit echte openbare ATProto-records. Er staat geen ficti
 
 De publieke prototypeversie wordt via GitHub Pages gepubliceerd op <https://hackejandro.github.io/commonplace/>. De statische Pages-versie staat in `docs/index.html`.
 
-De gratis live doorgeeflaag draait op Cloudflare Workers. Voor deze fase verwerkt iedere geopende browser een korte terugblik en daarna de live stroom. Eens per 15 minuten haalt de pagina maximaal twintig threads op. Alleen links met minstens één expliciet Nederlandstalig antwoord worden getoond; de rangschikking gebruikt eerst het aantal actieve gespreksthreads en daarna het aantal berichten. Het overzicht toont maximaal twintig links. Resultaten worden maximaal 24 uur lokaal in die browser bewaard.
+De gratis aggregatielaag draait op Cloudflare Workers. De Worker maakt iedere vijftien minuten één gedeelde momentopname voor alle bezoekers. Alleen links met minstens één expliciet Nederlandstalig antwoord worden getoond; de rangschikking gebruikt eerst het aantal actieve gespreksthreads en daarna het aantal berichten. Het overzicht bevat maximaal twintig berichten in totaal. Gesprekken en links ouder dan 24 uur worden automatisch verwijderd.
 
 ## MVP-regels
 
