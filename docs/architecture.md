@@ -18,6 +18,10 @@ Live filter
     ↓
 Browser
     ├── normaliseert en groepeert links
+    ├── haalt eens per 15 minuten de bijbehorende threads op
+    ├── telt uitsluitend antwoorden met een expliciete nl-taalcode
+    ├── verbergt links zonder Nederlandstalig antwoord
+    ├── sorteert op actieve gespreksthreads en daarna berichten
     ├── bewaart resultaten maximaal 24 uur in localStorage
     └── toont de oorspronkelijke berichten per link
     ↓
@@ -49,7 +53,9 @@ Elke oorspronkelijke URL blijft bewaard. Handmatige correctie of geavanceerde ca
 
 ## Gesprekken
 
-De live MVP toont berichten die de link zelf bevatten. Een Nederlandstalig antwoord hoeft de link niet te herhalen; het volledig ophalen van zulke antwoorden vereist een gedeelde index en hoort daarom bij de volgende implementatiefase.
+De live MVP vindt eerst Nederlandstalige berichten die de link zelf bevatten. Via `app.bsky.feed.getPostThread` worden de antwoorden opgehaald. Een antwoord telt alleen mee wanneer zijn eigen record een expliciete Nederlandse taalcode bevat. Een link verschijnt pas wanneer minstens één van zijn threads zo'n antwoord bevat.
+
+De feed sorteert eerst op het aantal afzonderlijke roots met een Nederlandstalig antwoord en daarna op het totale aantal Nederlandstalige berichten binnen die actieve threads.
 
 Berichten uit verschillende roots worden als afzonderlijke gesprekken getoond. Commonplace doet niet alsof deze berichten rechtstreeks op elkaar antwoorden.
 

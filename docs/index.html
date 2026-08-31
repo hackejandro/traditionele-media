@@ -17,8 +17,8 @@
     </header>
     <section class="feed" id="feed" aria-labelledby="feed-title">
       <div class="feed-intro">
-        <h1 id="feed-title">Nu besproken</h1>
-        <p>Links uit ATProto-berichten die expliciet als Nederlands zijn gemarkeerd.</p>
+        <h1 id="feed-title">Populaire gesprekken</h1>
+        <p>Links met actieve Nederlandstalige gespreksthreads, gerangschikt op het aantal gesprekken.</p>
         <div class="live-status" id="live-status" data-state="loading" role="status" aria-live="polite"><span class="live-dot" aria-hidden="true"></span><span id="live-text">Live berichten ophalen…</span></div>
       </div>
       <div class="link-list" id="link-list"></div>
@@ -28,7 +28,7 @@
       <article class="article-card">
         <div><div class="domain" id="detail-domain"></div><h1 id="detail-title"></h1><p id="detail-description"></p></div>
         <a class="article-button" id="article-button" target="_blank" rel="noopener noreferrer">Open link ↗</a>
-        <div class="article-meta"><span id="detail-messages"></span><span id="detail-people"></span></div>
+        <div class="article-meta"><span id="detail-conversations"></span><span id="detail-messages"></span><span id="detail-people"></span></div>
       </article>
       <p class="language-note">Commonplace gebruikt uitsluitend het taalveld van het oorspronkelijke bericht. Er wordt geen taal automatisch herkend. De feed wordt live opgebouwd via ATProto Jetstream.</p>
       <div class="conversation-list"><h2>Berichten over deze link</h2><div id="conversations"></div></div>
@@ -48,6 +48,8 @@
     let socket;
     let lastCursor=Math.trunc((Date.now()-3*60*1000)*1000);
     let reconnectTimer;
+    let refreshTimer;
+    let refreshing=false;
 
     function cleanUrl(value){
       try{
@@ -85,24 +87,34 @@
     }
     function element(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node}
 
+    function metrics(item){
+      const activeThreads=[...item.posts.values()].filter(post=>(post.replies||[]).length>0);
+      const replies=activeThreads.flatMap(post=>post.replies||[]);
+      return {conversations:activeThreads.length,messages:activeThreads.length+replies.length,people:new Set([...activeThreads,...replies].map(post=>post.did)).size};
+    }
+
     function ingest(event){
       if(event.kind!=='commit'||event.commit?.collection!=='app.bsky.feed.post'||!['create','update'].includes(event.commit.operation))return;
       const record=event.commit.record;
       if(!record)return;
       lastCursor=Math.max(lastCursor,event.time_us||0);
       const uri='at://'+event.did+'/app.bsky.feed.post/'+event.commit.rkey;
-      for(const candidate of candidates(record)){
+      const post={uri,did:event.did,rkey:event.commit.rkey,text:record.text||'',createdAt:record.createdAt||new Date().toISOString(),replies:[]};
+      const found=candidates(record);
+      for(const candidate of found){
         const parsed=new URL(candidate.url);
         const item=links.get(candidate.url)||{url:candidate.url,domain:parsed.hostname.replace(/^www\./,''),title:'',description:'',posts:new Map(),updatedAt:0};
         if(candidate.title)item.title=candidate.title;
         if(candidate.description)item.description=candidate.description;
+        const previous=item.posts.get(uri);if(previous?.replies?.length)post.replies=previous.replies;
         item.updatedAt=Math.max(item.updatedAt,new Date(record.createdAt||Date.now()).getTime());
-        item.posts.set(uri,{did:event.did,rkey:event.commit.rkey,text:record.text||'',createdAt:record.createdAt||new Date().toISOString(),root:record.reply?.root?.uri||uri});
+        item.posts.set(uri,post);
         links.set(candidate.url,item);
       }
       save();
       render();
       if(selectedUrl&&links.has(selectedUrl))openLink(selectedUrl,false);
+      scheduleRefresh();
     }
 
     function save(){
@@ -115,26 +127,68 @@
     }
     function load(){
       try{
-        for(const raw of JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'))links.set(raw.url,{...raw,posts:new Map(raw.posts||[])});
+        for(const raw of JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')){
+          const item={...raw,posts:new Map(raw.posts||[])};links.set(raw.url,item);
+        }
         save();
       }catch{localStorage.removeItem(STORAGE_KEY)}
     }
 
+    function isDutchView(post){
+      return Array.isArray(post?.record?.langs)&&post.record.langs.some(lang=>String(lang).toLowerCase().split('-')[0]==='nl');
+    }
+
+    function replyFromView(view,rootUri){
+      const [did,,rkey]=view.uri.replace('at://','').split('/');
+      return {uri:view.uri,did,rkey,text:view.record?.text||'',createdAt:view.record?.createdAt||view.indexedAt||new Date().toISOString(),root:rootUri,handle:view.author?.handle||'',displayName:view.author?.displayName||''};
+    }
+
+    function collectDutchReplies(node,rootUri,replies){
+      for(const child of node?.replies||[]){
+        if(child?.post){
+          if(isDutchView(child.post))replies.push(replyFromView(child.post,rootUri));
+          collectDutchReplies(child,rootUri,replies);
+        }
+      }
+    }
+
+    async function hydrateThread(uri,post){
+      const endpoint=new URL('https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread');
+      endpoint.searchParams.set('uri',uri);endpoint.searchParams.set('depth','6');endpoint.searchParams.set('parentHeight','0');
+      const response=await fetch(endpoint);if(!response.ok)throw new Error('Thread niet bereikbaar');
+      const data=await response.json();const root=data.thread?.post;if(!root)return;
+      post.handle=root.author?.handle||post.handle||'';post.displayName=root.author?.displayName||post.displayName||'';
+      post.text=root.record?.text||post.text;post.replies=[];collectDutchReplies(data.thread,uri,post.replies);
+    }
+
+    async function refreshThreads(){
+      if(refreshing)return;refreshing=true;clearTimeout(refreshTimer);refreshTimer=null;
+      setStatus('loading','Gesprekken tellen…');
+      const unique=new Map();
+      for(const item of [...links.values()].sort((a,b)=>b.updatedAt-a.updatedAt))for(const [uri,post] of item.posts)if(!unique.has(uri)&&unique.size<50)unique.set(uri,post);
+      const queue=[...unique.entries()];
+      for(let index=0;index<queue.length;index+=4)await Promise.all(queue.slice(index,index+4).map(([uri,post])=>hydrateThread(uri,post).catch(()=>{})));
+      refreshing=false;save();render();if(selectedUrl&&links.has(selectedUrl))openLink(selectedUrl,false);
+      setStatus('live','Gesprekken bijgewerkt om '+new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}));
+    }
+
+    function scheduleRefresh(){if(!refreshTimer)refreshTimer=setTimeout(refreshThreads,5000)}
+
     function render(){
       list.replaceChildren();
-      const items=[...links.values()].sort((a,b)=>b.updatedAt-a.updatedAt);
+      const items=[...links.values()].map(item=>({item,score:metrics(item)})).filter(entry=>entry.score.conversations>0).sort((a,b)=>b.score.conversations-a.score.conversations||b.score.messages-a.score.messages||b.item.updatedAt-a.item.updatedAt);
       if(!items.length){
-        list.append(element('p','empty-state','Nog geen Nederlandstalig linkbericht ontvangen. Commonplace kijkt enkele minuten terug en luistert daarna live mee.'));
+        list.append(element('p','empty-state','Nog geen link met een actief Nederlandstalig gesprek gevonden. Commonplace kijkt enkele minuten terug en luistert daarna live mee.'));
         return;
       }
-      for(const item of items){
-        const people=new Set([...item.posts.values()].map(post=>post.did)).size;
+      for(const entry of items){
+        const {item,score}=entry;
         const card=element('button','link-card');
         card.setAttribute('aria-label','Open berichten over '+(item.title||fallbackTitle(item.url)));
         card.append(element('span','domain',item.domain),element('strong','',item.title||fallbackTitle(item.url)));
         if(item.description)card.append(element('span','description',item.description));
         const meta=element('span','card-meta');
-        meta.append(element('span','',item.posts.size+' '+(item.posts.size===1?'bericht':'berichten')),element('span','',people+' '+(people===1?'persoon':'mensen')),element('span','open-label','Open →'));
+        meta.append(element('span','',score.conversations+' '+(score.conversations===1?'gesprek':'gesprekken')),element('span','',score.messages+' berichten'),element('span','',score.people+' '+(score.people===1?'persoon':'mensen')),element('span','open-label','Open →'));
         card.append(meta);
         card.addEventListener('click',()=>openLink(item.url));
         list.append(card);
@@ -145,26 +199,32 @@
     function openLink(url,scroll=true){
       const item=links.get(url);if(!item)return;
       selectedUrl=url;
-      const posts=[...item.posts.values()].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-      const people=new Set(posts.map(post=>post.did)).size;
+      const posts=[...item.posts.values()].filter(post=>(post.replies||[]).length>0).sort((a,b)=>(b.replies||[]).length-(a.replies||[]).length||new Date(b.createdAt)-new Date(a.createdAt));
+      const replies=posts.flatMap(post=>post.replies||[]);const people=new Set([...posts,...replies].map(post=>post.did)).size;
       document.getElementById('detail-domain').textContent=item.domain;
       document.getElementById('detail-title').textContent=item.title||fallbackTitle(item.url);
       document.getElementById('detail-description').textContent=item.description||'Gedeeld in openbare Nederlandstalige ATProto-berichten.';
-      document.getElementById('detail-messages').textContent=posts.length+' '+(posts.length===1?'bericht':'berichten');
+      document.getElementById('detail-conversations').textContent=posts.length+' '+(posts.length===1?'gesprek':'gesprekken');
+      document.getElementById('detail-messages').textContent=(posts.length+replies.length)+' berichten';
       document.getElementById('detail-people').textContent=people+' '+(people===1?'persoon':'mensen');
       document.getElementById('article-button').href=item.url;
       const conversations=document.getElementById('conversations');conversations.replaceChildren();
-      for(const post of posts){
+      function appendMessage(post,label){
         const article=element('article','conversation');
         const author=element('div','conversation-author');
         const identity=element('div');
-        identity.append(element('strong','',shortDid(post.did)),element('span','',relativeTime(post.createdAt)));
-        author.append(element('span','avatar',initials(post.did)),identity);
+        const name=post.displayName||post.handle||shortDid(post.did);
+        identity.append(element('strong','',name),element('span','',(post.handle?'@'+post.handle+' · ':'')+label+' · '+relativeTime(post.createdAt)));
+        author.append(element('span','avatar',initials(name)),identity);
         article.append(author,element('p','',post.text||'Dit bericht deelde de link zonder begeleidende tekst.'));
         const meta=element('div','conversation-meta');
         const source=element('a','','Bekijk oorspronkelijk bericht ↗');
         source.href='https://bsky.app/profile/'+encodeURIComponent(post.did)+'/post/'+encodeURIComponent(post.rkey);
         source.target='_blank';source.rel='noopener noreferrer';meta.append(source);article.append(meta);conversations.append(article);
+      }
+      for(const post of posts){
+        appendMessage(post,'start van gesprek');
+        for(const reply of post.replies||[])appendMessage(reply,'antwoord');
       }
       feed.classList.add('hidden');detail.classList.remove('hidden');if(scroll)window.scrollTo(0,0);
     }
@@ -177,7 +237,7 @@
       socket.addEventListener('message',message=>{
         try{
           const event=JSON.parse(message.data);
-          if(event.type==='status'){setStatus('live',links.size?'Live verbonden':'Live verbonden — wachten op een Nederlandse link…');return}
+          if(event.type==='status'){setStatus('live','Live verbonden — gesprekken worden geteld…');scheduleRefresh();return}
           ingest(event);
         }catch{}
       });
@@ -185,11 +245,10 @@
       socket.addEventListener('error',()=>socket.close());
     }
 
-    load();render();connect();
+    load();render();connect();setInterval(refreshThreads,15*60*1000);
     document.getElementById('back').addEventListener('click',showFeed);
     document.getElementById('brand').addEventListener('click',showFeed);
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(!socket||socket.readyState>1))connect()});
   </script>
 </body>
 </html>
-
