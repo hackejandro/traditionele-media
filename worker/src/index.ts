@@ -19,6 +19,7 @@ type CandidateRow = {
   uri: string; did: string; rkey: string; text: string; created_at: number;
   url: string; title: string; description: string;
 };
+type FeaturedRow = { url: string; admitted_at: number; expires_at: number };
 type PostView = {
   uri?: string; replyCount?: number; indexedAt?: string;
   record?: { text?: string; createdAt?: string; langs?: string[] };
@@ -166,6 +167,12 @@ export class CommonplaceCollector extends DurableObject<Env> {
           PRIMARY KEY (uri, url)
         );
         CREATE INDEX IF NOT EXISTS candidates_created_at ON candidates(created_at DESC);
+        CREATE TABLE IF NOT EXISTS featured (
+          url TEXT PRIMARY KEY,
+          admitted_at INTEGER NOT NULL,
+          expires_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS featured_expires_at ON featured(expires_at);
         CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
       `);
       const cursor = this.ctx.storage.sql.exec<{ value: string }>("SELECT value FROM meta WHERE key = 'cursor'").toArray()[0];
@@ -282,14 +289,32 @@ export class CommonplaceCollector extends DurableObject<Env> {
     if (this.building) return;
     this.building = true;
     try {
-      const cutoff = Date.now() - DAY;
+      const now = Date.now();
+      const cutoff = now - DAY;
       this.ctx.storage.sql.exec("DELETE FROM candidates WHERE created_at < ?", cutoff);
-      const rows = this.ctx.storage.sql.exec<CandidateRow>(
+      this.ctx.storage.sql.exec("DELETE FROM featured WHERE expires_at <= ?", now);
+      const previous = await this.env.COMMONPLACE.get<Snapshot>(SNAPSHOT_KEY, "json");
+      let featured = this.ctx.storage.sql.exec<FeaturedRow>(
+        "SELECT url, admitted_at, expires_at FROM featured ORDER BY admitted_at ASC",
+      ).toArray();
+      if (!featured.length && previous?.items.length) {
+        for (const item of previous.items.slice(0, 10)) {
+          this.ctx.storage.sql.exec(
+            "INSERT OR IGNORE INTO featured(url, admitted_at, expires_at) VALUES(?, ?, ?)",
+            item.url, now, now + DAY,
+          );
+        }
+        featured = this.ctx.storage.sql.exec<FeaturedRow>(
+          "SELECT url, admitted_at, expires_at FROM featured ORDER BY admitted_at ASC",
+        ).toArray();
+      }
+
+      const recentRows = this.ctx.storage.sql.exec<CandidateRow>(
         "SELECT uri, did, rkey, text, created_at, url, title, description FROM candidates ORDER BY created_at DESC LIMIT ?",
         MAX_CANDIDATES,
       ).toArray();
       const byUri = new Map<string, Candidate>();
-      for (const row of rows) {
+      for (const row of recentRows) {
         const post = byUri.get(row.uri) ?? {
           uri: row.uri, did: row.did, rkey: row.rkey, text: row.text,
           createdAt: new Date(row.created_at).toISOString(), links: [],
@@ -299,31 +324,98 @@ export class CommonplaceCollector extends DurableObject<Env> {
       }
       const candidates = [...byUri.values()];
       const views = await postViews(candidates);
-      const grouped = new Map<string, { link: Link; posts: Candidate[]; score: number }>();
+      const discovered = new Map<string, { link: Link; posts: Candidate[]; score: number }>();
       for (const post of candidates) {
         const replyCount = views.get(post.uri)?.replyCount ?? 0;
         if (!replyCount) continue;
         for (const link of post.links) {
-          const group = grouped.get(link.url) ?? { link: { ...link }, posts: [], score: 0 };
+          const group = discovered.get(link.url) ?? { link: { ...link }, posts: [], score: 0 };
           if (link.title) group.link.title = link.title;
           if (link.description) group.link.description = link.description;
           group.posts.push(post);
           group.score += 1000 + replyCount;
-          grouped.set(link.url, group);
+          discovered.set(link.url, group);
         }
       }
-      const groups = [...grouped.values()].sort((a, b) => b.score - a.score).slice(0, 20);
-      const roots = groups.flatMap((group) => group.posts).slice(0, 20);
+      const featuredUrls = new Set(featured.map((row) => row.url));
+      for (const group of [...discovered.values()].sort((a, b) => b.score - a.score)) {
+        if (featuredUrls.size >= 10) break;
+        if (featuredUrls.has(group.link.url)) continue;
+        this.ctx.storage.sql.exec(
+          "INSERT OR IGNORE INTO featured(url, admitted_at, expires_at) VALUES(?, ?, ?)",
+          group.link.url, now, now + DAY,
+        );
+        featuredUrls.add(group.link.url);
+      }
+      featured = this.ctx.storage.sql.exec<FeaturedRow>(
+        "SELECT url, admitted_at, expires_at FROM featured ORDER BY admitted_at ASC",
+      ).toArray();
+
+      const groups = new Map<string, { link: Link; posts: Candidate[]; score: number }>();
+      if (featured.length) {
+        const placeholders = featured.map(() => "?").join(", ");
+        const rows = this.ctx.storage.sql.exec<CandidateRow>(
+          `SELECT uri, did, rkey, text, created_at, url, title, description
+           FROM candidates WHERE url IN (${placeholders})
+           ORDER BY created_at DESC LIMIT 300`,
+          ...featured.map((row) => row.url),
+        ).toArray();
+        for (const row of rows) {
+          const group = groups.get(row.url) ?? {
+            link: { url: row.url, title: row.title, description: row.description },
+            posts: [], score: 0,
+          };
+          if (row.title) group.link.title = row.title;
+          if (row.description) group.link.description = row.description;
+          if (!group.posts.some((post) => post.uri === row.uri)) {
+            group.posts.push({
+              uri: row.uri, did: row.did, rkey: row.rkey, text: row.text,
+              createdAt: new Date(row.created_at).toISOString(),
+              links: [{ url: row.url, title: row.title, description: row.description }],
+            });
+          }
+          groups.set(row.url, group);
+        }
+      }
+      for (const row of featured) {
+        const fresh = discovered.get(row.url);
+        if (!fresh) continue;
+        const group = groups.get(row.url) ?? { link: fresh.link, posts: [], score: fresh.score };
+        for (const post of fresh.posts) if (!group.posts.some((current) => current.uri === post.uri)) group.posts.push(post);
+        group.score = fresh.score;
+        groups.set(row.url, group);
+      }
+      const orderedGroups = featured.map((row) => groups.get(row.url)).filter(
+        (group): group is { link: Link; posts: Candidate[]; score: number } => Boolean(group),
+      );
+      const roots: Candidate[] = [];
+      for (let index = 0; roots.length < 20; index += 1) {
+        let added = false;
+        for (const group of orderedGroups) {
+          const post = group.posts[index];
+          if (post && !roots.some((root) => root.uri === post.uri)) {
+            roots.push(post);
+            added = true;
+            if (roots.length === 20) break;
+          }
+        }
+        if (!added) break;
+      }
       const hydrated = new Map<string, FeedPost>();
       for (let offset = 0; offset < roots.length; offset += 4) {
         for (const post of await Promise.all(roots.slice(offset, offset + 4).map(hydrate))) {
           if (post) hydrated.set(post.uri, post);
         }
       }
+      const previousByUrl = new Map((previous?.items ?? []).map((item) => [item.url, item]));
       const items: FeedItem[] = [];
-      for (const group of groups) {
+      for (const group of orderedGroups) {
         const posts = group.posts.map((post) => hydrated.get(post.uri)).filter((post): post is FeedPost => Boolean(post));
-        if (!posts.length) continue;
+        if (!posts.length) {
+          const old = previousByUrl.get(group.link.url);
+          if (old) items.push(old);
+          continue;
+        }
         const parsed = new URL(group.link.url);
         items.push({
           url: group.link.url, domain: parsed.hostname.replace(/^www\./, ""),
@@ -331,33 +423,54 @@ export class CommonplaceCollector extends DurableObject<Env> {
           updatedAt: Math.max(...posts.map((post) => new Date(post.createdAt).getTime())),
         });
       }
-      items.sort((a, b) => b.posts.length - a.posts.length ||
-        b.posts.reduce((n, p) => n + p.replies.length, 0) - a.posts.reduce((n, p) => n + p.replies.length, 0) ||
-        b.updatedAt - a.updatedAt);
-      let remaining = MAX_MESSAGES;
-      const limited: FeedItem[] = [];
-      for (const item of items) {
-        const posts: FeedPost[] = [];
-        for (const post of item.posts) {
-          if (remaining < 2) break;
-          const replies = post.replies.slice(0, remaining - 1);
-          if (!replies.length) continue;
-          posts.push({ ...post, replies });
-          remaining -= 1 + replies.length;
-        }
-        if (posts.length) limited.push({ ...item, posts });
-        if (remaining < 2) break;
-      }
+      const limited = this.limitMessages(items);
       const snapshot: Snapshot = { generatedAt: new Date().toISOString(), expiresAfterHours: 24, items: limited };
       await this.env.COMMONPLACE.put(SNAPSHOT_KEY, JSON.stringify(snapshot));
       this.ctx.storage.sql.exec(
         "INSERT INTO meta(key, value) VALUES('snapshot_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         String(Date.now()),
       );
-      console.log(JSON.stringify({ event: "snapshot_refreshed", candidates: candidates.length, items: limited.length }));
+      console.log(JSON.stringify({ event: "snapshot_refreshed", candidates: candidates.length, featured: featured.length, items: limited.length }));
     } finally {
       this.building = false;
     }
+  }
+
+  private limitMessages(items: FeedItem[]): FeedItem[] {
+    const visible = items.filter((item) => item.posts.some((post) => post.replies.length)).slice(0, 10);
+    const limited = visible.map((item) => {
+      const first = item.posts.find((post) => post.replies.length)!;
+      return { ...item, posts: [{ ...first, replies: first.replies.slice(0, 1) }] };
+    });
+    let remaining = MAX_MESSAGES - limited.length * 2;
+    const queues = visible.map((item) => {
+      const units: Array<{ kind: "reply"; postIndex: number; reply: Reply } | { kind: "post"; post: FeedPost }> = [];
+      const active = item.posts.filter((post) => post.replies.length);
+      for (const reply of active[0]?.replies.slice(1) ?? []) units.push({ kind: "reply", postIndex: 0, reply });
+      for (const post of active.slice(1)) {
+        units.push({ kind: "post", post: { ...post, replies: post.replies.slice(0, 1) } });
+        for (const reply of post.replies.slice(1)) units.push({ kind: "reply", postIndex: active.indexOf(post), reply });
+      }
+      return units;
+    });
+    while (remaining > 0) {
+      let changed = false;
+      for (let index = 0; index < queues.length && remaining > 0; index += 1) {
+        const unit = queues[index].shift();
+        if (!unit) continue;
+        const cost = unit.kind === "post" ? 2 : 1;
+        if (cost > remaining) continue;
+        if (unit.kind === "post") limited[index].posts.push(unit.post);
+        else {
+          const target = limited[index].posts[unit.postIndex];
+          if (target) target.replies.push(unit.reply);
+        }
+        remaining -= cost;
+        changed = true;
+      }
+      if (!changed) break;
+    }
+    return limited;
   }
 }
 
