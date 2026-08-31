@@ -4,18 +4,21 @@
 
 Commonplace is een linkgerichte weergave van openbare gesprekken op ATProto. In plaats van afzonderlijke posters centraal te zetten, groepeert Commonplace bestaande berichten en gesprekken rond de link die wordt besproken.
 
-Deze repository bevat op dit moment:
+Deze repository bevat:
 
-- een werkend Nederlandstalig frontendprototype;
-- voorbeelddata voor de linkfeed en linkpagina;
-- het eerste databaseschema voor de ATProto-indexer;
+- een live Nederlandstalig frontendprototype op GitHub Pages;
+- een Cloudflare Worker die openbare ATProto Jetstream-berichten filtert;
+- lokale aggregatie van links en berichten in de browser;
+- het eerste databaseschema voor een latere gedeelde indexer;
 - de afgesproken, bewust beperkte regels voor de MVP.
 
-De live ATProto-indexer is de volgende implementatiefase. De huidige inhoud in de interface is fictieve voorbeelddata.
+De zichtbare inhoud komt uit echte openbare ATProto-records. Er staat geen fictieve voorbeeldinhoud meer in de gepubliceerde interface.
 
 ## Website
 
 De publieke prototypeversie wordt via GitHub Pages gepubliceerd op <https://hackejandro.github.io/commonplace/>. De statische Pages-versie staat in `docs/index.html`.
+
+De gratis live doorgeeflaag draait op Cloudflare Workers. Voor deze fase verwerkt iedere geopende browser een korte terugblik en daarna de live stroom; de gevonden links worden maximaal 24 uur lokaal in die browser bewaard. Een gedeelde, blijvende index hoort bij de volgende fase.
 
 ## MVP-regels
 
@@ -47,7 +50,16 @@ Open daarna `http://localhost:3000`.
 ```bash
 npm run build
 npm run lint
+npm run worker:check
 ```
+
+## Worker publiceren
+
+```bash
+npm run worker:deploy
+```
+
+De Worker gebruikt geen betaalde diensten, API-sleutels of automatische taaldetectie.
 
 ## Architectuur
 

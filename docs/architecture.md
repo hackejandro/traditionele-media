@@ -2,28 +2,26 @@
 
 ## Doel
 
-De eerste operationele versie is een read-only AppView over bestaande openbare `app.bsky.feed.post`-records. De applicatie maakt geen eigen Lexicon aan en vraagt gebruikers niet om in te loggen.
+De eerste operationele versie is een read-only live weergave van bestaande openbare `app.bsky.feed.post`-records. De applicatie maakt geen eigen Lexicon aan en vraagt gebruikers niet om in te loggen.
 
 ## Gegevensstroom
 
 ```text
-ATProto Relay
+ATProto Jetstream
     ↓
-Tap: alleen app.bsky.feed.post
+Cloudflare Worker: alleen app.bsky.feed.post
     ↓
-Indexer
+Live filter
     ├── accepteert alleen expliciete nl-taalcodes
-    ├── haalt links uit external embeds en rich-text facets
-    ├── koppelt antwoorden via root- en parent-URI's
-    └── verwerkt create, update en delete
+    ├── accepteert alleen berichten met een external embed of linkfacet
+    └── stuurt echte records door naar de geopende webpagina
     ↓
-Database
+Browser
+    ├── normaliseert en groepeert links
+    ├── bewaart resultaten maximaal 24 uur in localStorage
+    └── toont de oorspronkelijke berichten per link
     ↓
-Read-only API
-    ├── GET /api/links
-    └── GET /api/links/:id
-    ↓
-Commonplace-webinterface
+GitHub Pages-interface
 ```
 
 ## Taalregel
@@ -51,16 +49,15 @@ Elke oorspronkelijke URL blijft bewaard. Handmatige correctie of geavanceerde ca
 
 ## Gesprekken
 
-Een Nederlandstalig antwoord hoeft de link niet te herhalen. De indexer bewaart daarom de `root`- en `parent`-referenties van ieder bericht. Wanneer de root aan een link is gekoppeld, wordt het antwoord op dezelfde linkpagina weergegeven.
+De live MVP toont berichten die de link zelf bevatten. Een Nederlandstalig antwoord hoeft de link niet te herhalen; het volledig ophalen van zulke antwoorden vereist een gedeelde index en hoort daarom bij de volgende implementatiefase.
 
 Berichten uit verschillende roots worden als afzonderlijke gesprekken getoond. Commonplace doet niet alsof deze berichten rechtstreeks op elkaar antwoorden.
 
 ## Verwijderingen en wijzigingen
 
-- Een verwijderd record verdwijnt uit de zichtbare applicatie.
-- Een gewijzigd record wordt opnieuw verwerkt.
-- Wanneer een account wordt gedeactiveerd, worden de bijbehorende records niet meer getoond.
-- De AT-URI en CID worden bewaard om versies en verwijderingen correct te verwerken.
+- Een gewijzigd record wordt opnieuw verwerkt wanneer het via de live stroom binnenkomt.
+- De browser verwijdert lokaal bewaarde records na maximaal 24 uur.
+- Volledige verwerking van verwijderingen en accountstatussen vereist de latere gedeelde index.
 
 ## Niet in de eerste versie
 
@@ -70,4 +67,5 @@ Berichten uit verschillende roots worden als afzonderlijke gesprekken getoond. C
 - gebruikerslogin;
 - reageren vanuit Commonplace;
 - een eigen Lexicon;
-- personalisatie.
+- personalisatie;
+- een centrale database of blijvende gedeelde historie.

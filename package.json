@@ -9,7 +9,11 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .worker-dist --ignore-pattern worker/worker-configuration.d.ts",
+    "worker:types": "wrangler types --config worker/wrangler.jsonc worker/worker-configuration.d.ts",
+    "worker:check": "wrangler deploy --dry-run --config worker/wrangler.jsonc --outdir .worker-dist",
+    "worker:dev": "wrangler dev --config worker/wrangler.jsonc",
+    "worker:deploy": "wrangler deploy --config worker/wrangler.jsonc"
   },
   "dependencies": {
     "next": "16.2.6",
