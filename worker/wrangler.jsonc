@@ -8,13 +8,7 @@
     { "binding": "COMMONPLACE" }
   ],
   "triggers": {
-    "crons": ["*/15 * * * *"]
-  },
-  "kv_namespaces": [
-    { "binding": "COMMONPLACE" }
-  ],
-  "triggers": {
-    "crons": ["*/15 * * * *"]
+    "crons": ["0 * * * *"]
   },
   "observability": {
     "enabled": true,

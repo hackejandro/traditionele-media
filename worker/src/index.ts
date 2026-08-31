@@ -103,7 +103,7 @@ async function collect(cursor: number): Promise<{ posts: Candidate[]; cursor: nu
       if ([WebSocket.OPEN, WebSocket.CONNECTING].includes(socket.readyState)) socket.close(1000, "Momentopname compleet");
       resolve();
     };
-    const timer = setTimeout(finish, 12_000);
+    const timer = setTimeout(finish, 90_000);
     socket.addEventListener("message", (message) => {
       if (typeof message.data !== "string") return;
       try {
@@ -184,7 +184,7 @@ async function refresh(env: Env): Promise<Snapshot> {
   const stored: unknown = await env.COMMONPLACE.get(KEYS.candidates, "json");
   const old = Array.isArray(stored) ? stored.filter(isCandidate) : [];
   const savedCursor = Number(await env.COMMONPLACE.get(KEYS.cursor));
-  const earliest = (now - 20 * 60 * 1000) * 1000;
+  const earliest = (now - 70 * 60 * 1000) * 1000;
   const cursor = Number.isFinite(savedCursor) ? Math.max(savedCursor - 60_000_000, earliest) : earliest;
   const incoming = await collect(cursor);
   const unique = new Map<string, Candidate>();
@@ -264,5 +264,5 @@ export default {
     }
     return Response.json(snapshot, { headers: headers() });
   },
-  async scheduled(_controller, env, ctx): Promise<void> { ctx.waitUntil(refresh(env)); },
+  async scheduled(_controller, env): Promise<void> { await refresh(env); },
 } satisfies ExportedHandler<Env>;
