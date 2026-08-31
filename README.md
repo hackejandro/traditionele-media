@@ -13,6 +13,10 @@ Deze repository bevat op dit moment:
 
 De live ATProto-indexer is de volgende implementatiefase. De huidige inhoud in de interface is fictieve voorbeelddata.
 
+## Website
+
+De publieke prototypeversie wordt via GitHub Pages gepubliceerd op <https://hackejandro.github.io/commonplace/>. De statische Pages-versie staat in `docs/index.html`.
+
 ## MVP-regels
 
 Commonplace verwerkt voor de eerste versie uitsluitend bestaande `app.bsky.feed.post`-records.
