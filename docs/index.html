@@ -165,7 +165,7 @@
       if(refreshing)return;refreshing=true;clearTimeout(refreshTimer);refreshTimer=null;
       setStatus('loading','Gesprekken tellen…');
       const unique=new Map();
-      for(const item of [...links.values()].sort((a,b)=>b.updatedAt-a.updatedAt))for(const [uri,post] of item.posts)if(!unique.has(uri)&&unique.size<50)unique.set(uri,post);
+      for(const item of [...links.values()].sort((a,b)=>b.updatedAt-a.updatedAt))for(const [uri,post] of item.posts)if(!unique.has(uri)&&unique.size<20)unique.set(uri,post);
       const queue=[...unique.entries()];
       for(let index=0;index<queue.length;index+=4)await Promise.all(queue.slice(index,index+4).map(([uri,post])=>hydrateThread(uri,post).catch(()=>{})));
       refreshing=false;save();render();if(selectedUrl&&links.has(selectedUrl))openLink(selectedUrl,false);
@@ -176,7 +176,7 @@
 
     function render(){
       list.replaceChildren();
-      const items=[...links.values()].map(item=>({item,score:metrics(item)})).filter(entry=>entry.score.conversations>0).sort((a,b)=>b.score.conversations-a.score.conversations||b.score.messages-a.score.messages||b.item.updatedAt-a.item.updatedAt);
+      const items=[...links.values()].map(item=>({item,score:metrics(item)})).filter(entry=>entry.score.conversations>0).sort((a,b)=>b.score.conversations-a.score.conversations||b.score.messages-a.score.messages||b.item.updatedAt-a.item.updatedAt).slice(0,20);
       if(!items.length){
         list.append(element('p','empty-state','Nog geen link met een actief Nederlandstalig gesprek gevonden. Commonplace kijkt enkele minuten terug en luistert daarna live mee.'));
         return;
