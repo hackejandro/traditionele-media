@@ -219,7 +219,7 @@
         article.append(author,element('p','',post.text||'Dit bericht deelde de link zonder begeleidende tekst.'));
         const meta=element('div','conversation-meta');
         const source=element('a','','Bekijk oorspronkelijk bericht ↗');
-        source.href='https://bsky.app/profile/'+encodeURIComponent(post.did)+'/post/'+encodeURIComponent(post.rkey);
+        source.href='https://bsky.app/profile/'+post.did+'/post/'+post.rkey;
         source.target='_blank';source.rel='noopener noreferrer';meta.append(source);article.append(meta);conversations.append(article);
       }
       for(const post of posts){
