@@ -22,7 +22,11 @@ type CandidateRow = {
 type FeaturedRow = { url: string; admitted_at: number; expires_at: number };
 type PostView = {
   uri?: string; replyCount?: number; indexedAt?: string;
-  record?: { text?: string; createdAt?: string; langs?: string[] };
+  record?: {
+    text?: string; createdAt?: string; langs?: string[];
+    facets?: Array<{ features?: Array<{ uri?: string }> }>;
+    embed?: { external?: { uri?: string; title?: string; description?: string } };
+  };
   author?: { did?: string; handle?: string; displayName?: string };
 };
 type JetEvent = {
@@ -31,6 +35,7 @@ type JetEvent = {
     langs?: string[]; text?: string; createdAt?: string;
     facets?: Array<{ features?: Array<{ uri?: string }> }>;
     embed?: { external?: { uri?: string; title?: string; description?: string } };
+    reply?: { root?: { uri?: string }; parent?: { uri?: string } };
   } };
 };
 
@@ -44,10 +49,14 @@ function isDutch(langs: unknown): boolean {
   );
 }
 
-function cleanUrl(value: string): string | null {
+function cleanUrl(value: string, depth = 0): string | null {
   try {
     const url = new URL(value);
     if (!["http:", "https:"].includes(url.protocol)) return null;
+    if (depth < 2 && url.hostname === "go.bsky.app" && url.pathname === "/redirect") {
+      const target = url.searchParams.get("u");
+      if (target) return cleanUrl(target, depth + 1);
+    }
     url.hash = "";
     for (const key of [...url.searchParams.keys()]) {
       if (key.startsWith("utm_") || ["fbclid", "gclid"].includes(key)) url.searchParams.delete(key);
@@ -150,6 +159,7 @@ export class CommonplaceCollector extends DurableObject<Env> {
   private latestCursor = 0;
   private framesSinceCursorWrite = 0;
   private building = false;
+  private pendingRoots = new Set<string>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -193,6 +203,11 @@ export class CommonplaceCollector extends DurableObject<Env> {
 
   async refreshNow(): Promise<void> {
     await this.ensureStarted();
+    await this.buildSnapshot();
+  }
+
+  async backfillRoot(rootUri: string): Promise<void> {
+    await this.storeRootForDutchReply(rootUri);
     await this.buildSnapshot();
   }
 
@@ -240,6 +255,10 @@ export class CommonplaceCollector extends DurableObject<Env> {
       }
       const candidate = candidateFrom(event);
       if (candidate) this.storeCandidate(candidate);
+      const rootUri = event.commit?.record?.reply?.root?.uri;
+      if (!candidate && rootUri && isDutch(event.commit?.record?.langs)) {
+        this.ctx.waitUntil(this.storeRootForDutchReply(rootUri));
+      }
       if (candidate || this.framesSinceCursorWrite >= 500) this.persistCursor();
     } catch { /* Een ongeldig Jetstream-frame wordt genegeerd. */ }
   }
@@ -280,6 +299,45 @@ export class CommonplaceCollector extends DurableObject<Env> {
     );
   }
 
+  private async storeRootForDutchReply(rootUri: string): Promise<void> {
+    if (this.pendingRoots.has(rootUri)) return;
+    const known = this.ctx.storage.sql.exec<{ count: number }>(
+      "SELECT COUNT(*) AS count FROM candidates WHERE uri = ?",
+      rootUri,
+    ).one().count;
+    if (known) return;
+    this.pendingRoots.add(rootUri);
+    try {
+      const endpoint = new URL(`${API}/app.bsky.feed.getPosts`);
+      endpoint.searchParams.append("uris", rootUri);
+      const response = await fetch(endpoint);
+      if (!response.ok) return;
+      const data: unknown = await response.json();
+      const values = data && typeof data === "object" ? (data as { posts?: unknown }).posts : null;
+      if (!Array.isArray(values) || !values[0] || typeof values[0] !== "object") return;
+      const root = values[0] as PostView;
+      if (!root.uri || !root.author?.did || !root.record) return;
+      const links = linksFrom({ commit: { record: root.record } });
+      if (!links.length) return;
+      this.storeCandidate({
+        uri: root.uri,
+        did: root.author.did,
+        rkey: root.uri.replace("at://", "").split("/")[2] ?? "",
+        text: root.record.text ?? "",
+        createdAt: root.record.createdAt ?? root.indexedAt ?? new Date().toISOString(),
+        links,
+      });
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "reply_root_fetch_failed",
+        rootUri,
+        message: error instanceof Error ? error.message : "unknown",
+      }));
+    } finally {
+      this.pendingRoots.delete(rootUri);
+    }
+  }
+
   private async refreshIfDue(): Promise<void> {
     const row = this.ctx.storage.sql.exec<{ value: string }>("SELECT value FROM meta WHERE key = 'snapshot_at'").toArray()[0];
     if (!row || Date.now() - Number(row.value) >= SNAPSHOT_INTERVAL) await this.buildSnapshot();
@@ -298,7 +356,7 @@ export class CommonplaceCollector extends DurableObject<Env> {
         "SELECT url, admitted_at, expires_at FROM featured ORDER BY admitted_at ASC",
       ).toArray();
       if (!featured.length && previous?.items.length) {
-        for (const item of previous.items.slice(0, 10)) {
+        for (const item of previous.items.slice(0, 20)) {
           this.ctx.storage.sql.exec(
             "INSERT OR IGNORE INTO featured(url, admitted_at, expires_at) VALUES(?, ?, ?)",
             item.url, now, now + DAY,
@@ -339,7 +397,7 @@ export class CommonplaceCollector extends DurableObject<Env> {
       }
       const featuredUrls = new Set(featured.map((row) => row.url));
       for (const group of [...discovered.values()].sort((a, b) => b.score - a.score)) {
-        if (featuredUrls.size >= 10) break;
+        if (featuredUrls.size >= 20) break;
         if (featuredUrls.has(group.link.url)) continue;
         this.ctx.storage.sql.exec(
           "INSERT OR IGNORE INTO featured(url, admitted_at, expires_at) VALUES(?, ?, ?)",
@@ -414,6 +472,7 @@ export class CommonplaceCollector extends DurableObject<Env> {
         if (!posts.length) {
           const old = previousByUrl.get(group.link.url);
           if (old) items.push(old);
+          else this.ctx.storage.sql.exec("DELETE FROM featured WHERE url = ?", group.link.url);
           continue;
         }
         const parsed = new URL(group.link.url);
@@ -437,19 +496,19 @@ export class CommonplaceCollector extends DurableObject<Env> {
   }
 
   private limitMessages(items: FeedItem[]): FeedItem[] {
-    const visible = items.filter((item) => item.posts.some((post) => post.replies.length)).slice(0, 10);
+    const visible = items.filter((item) => item.posts.some((post) => post.replies.length)).slice(0, 20);
     const limited = visible.map((item) => {
       const first = item.posts.find((post) => post.replies.length)!;
-      return { ...item, posts: [{ ...first, replies: first.replies.slice(0, 1) }] };
+      return { ...item, posts: [{ ...first, replies: [] }] };
     });
-    let remaining = MAX_MESSAGES - limited.length * 2;
+    let remaining = MAX_MESSAGES - limited.length;
     const queues = visible.map((item) => {
       const units: Array<{ kind: "reply"; postIndex: number; reply: Reply } | { kind: "post"; post: FeedPost }> = [];
       const active = item.posts.filter((post) => post.replies.length);
-      for (const reply of active[0]?.replies.slice(1) ?? []) units.push({ kind: "reply", postIndex: 0, reply });
+      for (const reply of active[0]?.replies ?? []) units.push({ kind: "reply", postIndex: 0, reply });
       for (const post of active.slice(1)) {
-        units.push({ kind: "post", post: { ...post, replies: post.replies.slice(0, 1) } });
-        for (const reply of post.replies.slice(1)) units.push({ kind: "reply", postIndex: active.indexOf(post), reply });
+        units.push({ kind: "post", post: { ...post, replies: [] } });
+        for (const reply of post.replies) units.push({ kind: "reply", postIndex: active.indexOf(post), reply });
       }
       return units;
     });
@@ -458,7 +517,7 @@ export class CommonplaceCollector extends DurableObject<Env> {
       for (let index = 0; index < queues.length && remaining > 0; index += 1) {
         const unit = queues[index].shift();
         if (!unit) continue;
-        const cost = unit.kind === "post" ? 2 : 1;
+        const cost = 1;
         if (cost > remaining) continue;
         if (unit.kind === "post") limited[index].posts.push(unit.post);
         else {
