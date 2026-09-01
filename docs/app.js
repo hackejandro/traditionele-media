@@ -26,4 +26,4 @@ async function loadFeed(){
   try{const response=await fetch(FEED_URL);if(!response.ok&&response.status!==202)throw new Error();const snapshot=await response.json();links.clear();for(const item of snapshot.items||[])links.set(item.url,item);render();if(selectedUrl&&links.has(selectedUrl))openLink(selectedUrl,false);snapshot.generatedAt?setStatus('live','Bijgewerkt om '+new Date(snapshot.generatedAt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})):setStatus('loading','De eerste gedeelde feed wordt opgebouwd…')}
   catch{setStatus('error','De gedeelde feed kon niet worden opgehaald — opnieuw proberen…')}
 }
-loadFeed();setInterval(loadFeed,15*60*1000);document.getElementById('back').addEventListener('click',showFeed);document.getElementById('brand').addEventListener('click',showFeed);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')loadFeed()});
+loadFeed();setInterval(loadFeed,15*60*1000);document.getElementById('back').addEventListener('click',showFeed);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')loadFeed()});
