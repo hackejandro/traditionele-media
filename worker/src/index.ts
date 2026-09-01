@@ -7,7 +7,7 @@ const SNAPSHOT_KEY = "feed:v3";
 const DAY = 24 * 60 * 60 * 1000;
 const SNAPSHOT_INTERVAL = 15 * 60 * 1000;
 const MAX_CANDIDATES = 300;
-const MAX_MESSAGES = 20;
+const MAX_ITEMS = 20;
 
 type Link = { url: string; title: string; description: string };
 type Candidate = { uri: string; did: string; rkey: string; text: string; createdAt: string; links: Link[] };
@@ -150,7 +150,6 @@ async function hydrate(candidate: Candidate): Promise<FeedPost | null> {
   if (!root) return null;
   const replies: Reply[] = [];
   collectReplies(thread, replies);
-  if (!replies.length) return null;
   return { ...candidate, text: root.record?.text ?? candidate.text, replies, handle: root.author?.handle, displayName: root.author?.displayName };
 }
 
@@ -385,7 +384,6 @@ export class CommonplaceCollector extends DurableObject<Env> {
       const discovered = new Map<string, { link: Link; posts: Candidate[]; score: number }>();
       for (const post of candidates) {
         const replyCount = views.get(post.uri)?.replyCount ?? 0;
-        if (!replyCount) continue;
         for (const link of post.links) {
           const group = discovered.get(link.url) ?? { link: { ...link }, posts: [], score: 0 };
           if (link.title) group.link.title = link.title;
@@ -394,6 +392,11 @@ export class CommonplaceCollector extends DurableObject<Env> {
           group.score += 1000 + replyCount;
           discovered.set(link.url, group);
         }
+      }
+      for (const [url, group] of discovered) {
+        const distinctPosters = new Set(group.posts.map((post) => post.did)).size;
+        const hasReplies = group.score > (group.posts.length * 1000);
+        if (distinctPosters < 2 && !hasReplies) discovered.delete(url);
       }
       const featuredUrls = new Set(featured.map((row) => row.url));
       for (const group of [...discovered.values()].sort((a, b) => b.score - a.score)) {
@@ -446,22 +449,24 @@ export class CommonplaceCollector extends DurableObject<Env> {
       const orderedGroups = featured.map((row) => groups.get(row.url)).filter(
         (group): group is { link: Link; posts: Candidate[]; score: number } => Boolean(group),
       );
-      const roots: Candidate[] = [];
-      for (let index = 0; roots.length < 20; index += 1) {
-        let added = false;
-        for (const group of orderedGroups) {
-          const post = group.posts[index];
-          if (post && !roots.some((root) => root.uri === post.uri)) {
-            roots.push(post);
-            added = true;
-            if (roots.length === 20) break;
-          }
-        }
-        if (!added) break;
-      }
+      const roots = [...new Map(
+        orderedGroups.flatMap((group) => group.posts).map((post) => [post.uri, post]),
+      ).values()];
+      const featuredViews = await postViews(roots);
+      for (const [uri, view] of featuredViews) views.set(uri, view);
       const hydrated = new Map<string, FeedPost>();
       for (let offset = 0; offset < roots.length; offset += 4) {
-        for (const post of await Promise.all(roots.slice(offset, offset + 4).map(hydrate))) {
+        for (const post of await Promise.all(roots.slice(offset, offset + 4).map(async (candidate) => {
+          const view = views.get(candidate.uri);
+          if ((view?.replyCount ?? 0) > 0) return hydrate(candidate);
+          return {
+            ...candidate,
+            text: view?.record?.text ?? candidate.text,
+            replies: [],
+            handle: view?.author?.handle,
+            displayName: view?.author?.displayName,
+          } satisfies FeedPost;
+        }))) {
           if (post) hydrated.set(post.uri, post);
         }
       }
@@ -471,18 +476,20 @@ export class CommonplaceCollector extends DurableObject<Env> {
         const posts = group.posts.map((post) => hydrated.get(post.uri)).filter((post): post is FeedPost => Boolean(post));
         if (!posts.length) {
           const old = previousByUrl.get(group.link.url);
-          if (old) items.push(old);
+          if (old && this.hasMultiplePeople(old)) items.push(old);
           else this.ctx.storage.sql.exec("DELETE FROM featured WHERE url = ?", group.link.url);
           continue;
         }
         const parsed = new URL(group.link.url);
-        items.push({
+        const item: FeedItem = {
           url: group.link.url, domain: parsed.hostname.replace(/^www\./, ""),
           title: group.link.title, description: group.link.description, posts,
           updatedAt: Math.max(...posts.map((post) => new Date(post.createdAt).getTime())),
-        });
+        };
+        if (this.hasMultiplePeople(item)) items.push(item);
+        else this.ctx.storage.sql.exec("DELETE FROM featured WHERE url = ?", group.link.url);
       }
-      const limited = this.limitMessages(items);
+      const limited = items.filter((item) => this.hasMultiplePeople(item)).slice(0, MAX_ITEMS);
       const snapshot: Snapshot = { generatedAt: new Date().toISOString(), expiresAfterHours: 24, items: limited };
       await this.env.COMMONPLACE.put(SNAPSHOT_KEY, JSON.stringify(snapshot));
       this.ctx.storage.sql.exec(
@@ -495,42 +502,15 @@ export class CommonplaceCollector extends DurableObject<Env> {
     }
   }
 
-  private limitMessages(items: FeedItem[]): FeedItem[] {
-    const visible = items.filter((item) => item.posts.some((post) => post.replies.length)).slice(0, 20);
-    const limited = visible.map((item) => {
-      const first = item.posts.find((post) => post.replies.length)!;
-      return { ...item, posts: [{ ...first, replies: [] }] };
-    });
-    let remaining = MAX_MESSAGES - limited.length;
-    const queues = visible.map((item) => {
-      const units: Array<{ kind: "reply"; postIndex: number; reply: Reply } | { kind: "post"; post: FeedPost }> = [];
-      const active = item.posts.filter((post) => post.replies.length);
-      for (const reply of active[0]?.replies ?? []) units.push({ kind: "reply", postIndex: 0, reply });
-      for (const post of active.slice(1)) {
-        units.push({ kind: "post", post: { ...post, replies: [] } });
-        for (const reply of post.replies) units.push({ kind: "reply", postIndex: active.indexOf(post), reply });
-      }
-      return units;
-    });
-    while (remaining > 0) {
-      let changed = false;
-      for (let index = 0; index < queues.length && remaining > 0; index += 1) {
-        const unit = queues[index].shift();
-        if (!unit) continue;
-        const cost = 1;
-        if (cost > remaining) continue;
-        if (unit.kind === "post") limited[index].posts.push(unit.post);
-        else {
-          const target = limited[index].posts[unit.postIndex];
-          if (target) target.replies.push(unit.reply);
-        }
-        remaining -= cost;
-        changed = true;
-      }
-      if (!changed) break;
+  private hasMultiplePeople(item: FeedItem): boolean {
+    const people = new Set<string>();
+    for (const post of item.posts) {
+      people.add(post.did);
+      for (const reply of post.replies) people.add(reply.did);
     }
-    return limited;
+    return people.size >= 2;
   }
+
 }
 
 function collector(env: Env): DurableObjectStub<CommonplaceCollector> {
@@ -546,7 +526,7 @@ export default {
       return Response.json({ ok: true, ...state }, { headers: responseHeaders() });
     }
     if (path !== "/feed") return new Response("Commonplace gedeelde feed");
-    ctx.waitUntil(instance.ensureStarted());
+    ctx.waitUntil(instance.tick());
     const snapshot = await env.COMMONPLACE.get<Snapshot>(SNAPSHOT_KEY, "json");
     if (!snapshot) {
       ctx.waitUntil(instance.refreshNow());
