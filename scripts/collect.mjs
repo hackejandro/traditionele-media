@@ -63,9 +63,16 @@ function candidateFrom(event) {
 }
 
 async function json(url) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`${response.status} ${url}`);
-  return response.json();
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const response = await fetch(url);
+    if (response.ok) return response.json();
+    lastStatus = response.status;
+    await response.body?.cancel();
+    if (response.status !== 429 && response.status < 500) break;
+    await new Promise((resolve) => setTimeout(resolve, 750 * (2 ** attempt)));
+  }
+  throw new Error(`${lastStatus} ${url}`);
 }
 
 async function getPosts(uris) {
