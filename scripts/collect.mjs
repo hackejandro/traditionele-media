@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 const JETSTREAM = 'wss://jetstream2.us-east.bsky.network/subscribe';
@@ -232,18 +233,21 @@ async function buildFeed(state) {
     const people = new Set(hydrated.flatMap((post) => [post.did, ...post.replies.map((reply) => reply.did)]));
     if (people.size < 2) continue;
     const parsed = new URL(url);
+    const featured = existing.get(url) || { url, admittedAt: now, expiresAt: now + DAY };
     items.push({
+      id: createHash('sha256').update(url).digest('hex').slice(0, 12),
       url,
       domain: parsed.hostname.replace(/^www\./, ''),
       title: group.link.title,
       description: group.link.description,
+      firstSeenAt: featured.admittedAt,
       posts: hydrated,
       updatedAt: Math.max(...hydrated.flatMap((post) => [
         new Date(post.createdAt).getTime(),
         ...post.replies.map((reply) => new Date(reply.createdAt).getTime()),
       ])),
     });
-    nextFeatured.push(existing.get(url) || { url, admittedAt: now, expiresAt: now + DAY });
+    nextFeatured.push(featured);
   }
   state.featured = nextFeatured;
   items.sort((a, b) => b.updatedAt - a.updatedAt);

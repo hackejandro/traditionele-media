@@ -42,6 +42,9 @@ jobs:
       - name: Collect and build feed
         run: node scripts/collect.mjs
 
+      - name: Prepare bot post (dry run)
+        run: node scripts/prepare-bot-post.mjs
+
       - name: Save collector state
         uses: actions/upload-artifact@v4
         with:
