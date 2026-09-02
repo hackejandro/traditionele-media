@@ -1,0 +1,57 @@
+name: Update Commonplace feed
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: commonplace-feed
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore latest collector state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=collector-state&per_page=1" --jq '.artifacts[0].id // empty')
+          if [ -n "$artifact_id" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" > state.zip
+            unzip -o state.zip -d work
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Collect and build feed
+        run: node scripts/collect.mjs
+
+      - name: Save collector state
+        uses: actions/upload-artifact@v4
+        with:
+          name: collector-state
+          path: work/collector-state.json
+          retention-days: 2
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

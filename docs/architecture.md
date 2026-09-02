@@ -9,14 +9,14 @@ De eerste operationele versie is een read-only live weergave van bestaande openb
 ```text
 ATProto Jetstream
     ↓
-Geplande Cloudflare Worker (iedere 15 minuten)
+Geplande GitHub Action (iedere 15 minuten)
     ↓
 Inhaalslag vanaf opgeslagen Jetstream-cursor
     ├── accepteert alleen expliciete nl-taalcodes
     ├── accepteert alleen berichten met een external embed of linkfacet
-    └── verstuurt relevante records in één bundel
+    └── voegt relevante records aan de tijdelijke verzamelstaat toe
     ↓
-Durable Object met SQLite
+Node-verzamelaar
     ├── normaliseert en groepeert links
     ├── haalt de bijbehorende threads op
     ├── telt uitsluitend antwoorden met een expliciete nl-taalcode
@@ -24,7 +24,7 @@ Durable Object met SQLite
     ├── sorteert op actieve gespreksthreads en daarna berichten
     └── bewaart resultaten maximaal 24 uur
     ↓
-Gedeelde KV-snapshot
+Gedeelde feed.json in het GitHub Pages-artifact
     ↓
 GitHub Pages-interface
 ```
