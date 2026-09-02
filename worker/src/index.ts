@@ -4,6 +4,7 @@ const ORIGIN = "https://hackejandro.github.io";
 const JETSTREAM = "wss://jetstream2.us-east.bsky.network/subscribe";
 const API = "https://public.api.bsky.app/xrpc";
 const SNAPSHOT_KEY = "feed:v3";
+const VISITOR_COUNT_KEY = "visitors:total:v1";
 const CURSOR_KEY = "jetstream:cursor:v1";
 const DAY = 24 * 60 * 60 * 1000;
 const SNAPSHOT_INTERVAL = 15 * 60 * 1000;
@@ -52,6 +53,14 @@ type CollectedBatch = {
 
 function responseHeaders(): HeadersInit {
   return { "Access-Control-Allow-Origin": ORIGIN, "Cache-Control": "public, max-age=60, s-maxage=300" };
+}
+
+function visitorHeaders(): HeadersInit {
+  return {
+    "Access-Control-Allow-Origin": ORIGIN,
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Cache-Control": "no-store",
+  };
 }
 
 function isDutch(langs: unknown): boolean {
@@ -580,6 +589,16 @@ function collector(env: Env): DurableObjectStub<CommonplaceCollector> {
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const path = new URL(request.url).pathname;
+    if (path === "/visitors") {
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: visitorHeaders() });
+      if (request.method !== "GET" && request.method !== "POST") {
+        return new Response("Method not allowed", { status: 405, headers: visitorHeaders() });
+      }
+      const current = Number(await env.COMMONPLACE.get(VISITOR_COUNT_KEY) ?? "0");
+      const count = request.method === "POST" ? current + 1 : current;
+      if (request.method === "POST") await env.COMMONPLACE.put(VISITOR_COUNT_KEY, String(count));
+      return Response.json({ count }, { headers: visitorHeaders() });
+    }
     const instance = collector(env);
     if (path === "/health") {
       const state = await instance.status();

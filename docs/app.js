@@ -1,6 +1,8 @@
 const FEED_URL='./feed.json';
+const VISITOR_URL='https://commonplace-stream.alejandrotauber.workers.dev/visitors';
+const VISITOR_KEY='commonplace-counted-visitor-v1';
 const links=new Map(),feed=document.getElementById('feed'),detail=document.getElementById('detail'),list=document.getElementById('link-list'),status=document.getElementById('live-status'),statusText=document.getElementById('live-text');
-let selectedUrl=null;
+let selectedUrl=null,visitorCount=null,generatedAt=null;
 function shortDid(did){return did.length>22?did.slice(0,12)+'…'+did.slice(-5):did}
 function initials(value){return value.slice(-2).toUpperCase()}
 function relativeTime(value){const m=Math.max(0,Math.floor((Date.now()-new Date(value).getTime())/60000));return m<1?'zojuist':m<60?m+' min':m<1440?Math.floor(m/60)+' u':Math.floor(m/1440)+' d'}
@@ -8,6 +10,12 @@ function fallbackTitle(url){const p=new URL(url),part=decodeURIComponent(p.pathn
 function element(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node}
 function metrics(item){const replies=item.posts.flatMap(post=>post.replies||[]);return{conversations:item.posts.length,messages:item.posts.length+replies.length,people:new Set([...item.posts,...replies].map(post=>post.did)).size}}
 function setStatus(state,text){status.dataset.state=state;statusText.textContent=text}
+function liveStatus(){
+  if(!generatedAt)return;
+  const time=new Date(generatedAt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
+  const visitors=visitorCount===null?'':' – '+new Intl.NumberFormat('nl-NL').format(visitorCount)+' bezoekers hebben hier hun voordeel mee gedaan';
+  setStatus('live','Bijgewerkt om '+time+visitors);
+}
 function render(){
   list.replaceChildren();const items=[...links.values()].slice(0,20);
   if(!items.length){list.append(element('p','empty-state','Nog geen link met een actief Nederlandstalig gesprek gevonden. De gedeelde feed wordt iedere vijftien minuten bijgewerkt.'));return}
@@ -23,7 +31,11 @@ function openLink(url,scroll=true){
 }
 async function loadFeed(){
   setStatus('loading','Gedeelde feed ophalen…');
-  try{const response=await fetch(FEED_URL,{cache:'no-store'});if(!response.ok)throw new Error();const snapshot=await response.json();links.clear();for(const item of snapshot.items||[])links.set(item.url,item);render();if(selectedUrl&&links.has(selectedUrl))openLink(selectedUrl,false);snapshot.generatedAt?setStatus('live','Bijgewerkt om '+new Date(snapshot.generatedAt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})):setStatus('loading','De eerste gedeelde feed wordt opgebouwd…')}
+  try{const response=await fetch(FEED_URL,{cache:'no-store'});if(!response.ok)throw new Error();const snapshot=await response.json();links.clear();for(const item of snapshot.items||[])links.set(item.url,item);render();if(selectedUrl&&links.has(selectedUrl))openLink(selectedUrl,false);generatedAt=snapshot.generatedAt||null;generatedAt?liveStatus():setStatus('loading','De eerste gedeelde feed wordt opgebouwd…')}
   catch{setStatus('error','De gedeelde feed kon niet worden opgehaald — opnieuw proberen…')}
 }
-loadFeed();setInterval(loadFeed,15*60*1000);document.getElementById('back').addEventListener('click',showFeed);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')loadFeed()});
+async function loadVisitorCount(){
+  let counted=false;try{counted=localStorage.getItem(VISITOR_KEY)==='1'}catch{}
+  try{const response=await fetch(VISITOR_URL,{method:counted?'GET':'POST',cache:'no-store'});if(!response.ok)throw new Error();const data=await response.json();visitorCount=Number(data.count);if(!counted)try{localStorage.setItem(VISITOR_KEY,'1')}catch{}liveStatus()}catch{}
+}
+loadFeed();loadVisitorCount();setInterval(loadFeed,15*60*1000);document.getElementById('back').addEventListener('click',showFeed);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')loadFeed()});
