@@ -15,9 +15,6 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["CommonplaceCollector"] }
   ],
-  "triggers": {
-    "crons": ["*/15 * * * *"]
-  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 0.01
