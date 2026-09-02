@@ -42,9 +42,9 @@ jobs:
       - name: Collect and build feed
         run: node scripts/collect.mjs
 
-      - name: Prepare bot post (dry run)
+      - name: Publish qualifying conversation
         env:
-          BOT_MODE: dry-run
+          BOT_MODE: live
           EUROSKY_APP_PASSWORD: ${{ secrets.EUROSKY_APP_PASSWORD }}
         run: node scripts/prepare-bot-post.mjs
 
