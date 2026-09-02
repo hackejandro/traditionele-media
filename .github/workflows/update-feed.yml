@@ -2,7 +2,8 @@ name: Update Commonplace feed
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    # Vermijd de drukke hele en kwartieruren waarop geplande runs vaker vertragen.
+    - cron: '11,26,41,56 * * * *'
   workflow_dispatch:
 
 permissions:
