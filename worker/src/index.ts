@@ -11,6 +11,7 @@ const COLLECTION_WINDOW = 50 * 1000;
 const MAX_CANDIDATES = 300;
 const MAX_ITEMS = 20;
 const MAX_THREAD_HYDRATIONS = 20;
+type WorkerEnv = Env & { GITHUB_TRIGGER_TOKEN: string };
 
 type Link = { url: string; title: string; description: string };
 type Candidate = { uri: string; did: string; rkey: string; text: string; createdAt: string; links: Link[] };
@@ -593,17 +594,26 @@ export default {
     return Response.json(snapshot, { headers: responseHeaders() });
   },
   async scheduled(_controller, env): Promise<void> {
-    const batch = await collectJetstream(env);
-    const instance = collector(env);
-    await instance.ingestBatch(batch.candidates, batch.rootUris, batch.lastEventAt);
-    await env.COMMONPLACE.put(CURSOR_KEY, String(batch.cursor));
-    await instance.refreshNow();
+    const response = await fetch(
+      "https://api.github.com/repos/hackejandro/commonplace/actions/workflows/update-feed.yml/dispatches",
+      {
+        method: "POST",
+        headers: {
+          "Accept": "application/vnd.github+json",
+          "Authorization": `Bearer ${env.GITHUB_TRIGGER_TOKEN}`,
+          "User-Agent": "commonplace-scheduler",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({ ref: "main" }),
+      },
+    );
+    if (!response.ok) {
+      console.error(JSON.stringify({ event: "github_dispatch_failed", status: response.status }));
+      throw new Error(`GitHub dispatch failed with ${response.status}`);
+    }
     console.log(JSON.stringify({
-      event: "jetstream_batch_complete",
-      candidates: batch.candidates.length,
-      replyRoots: batch.rootUris.length,
-      cursor: batch.cursor,
-      lastEventAt: batch.lastEventAt,
+      event: "github_feed_update_dispatched",
+      scheduledAt: new Date().toISOString(),
     }));
   },
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler<WorkerEnv>;
