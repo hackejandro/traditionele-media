@@ -58,7 +58,7 @@ De live MVP vindt eerst Nederlandstalige berichten die de link zelf bevatten. Vi
 
 De feed sorteert eerst op het aantal afzonderlijke roots met een Nederlandstalig antwoord en daarna op het totale aantal Nederlandstalige berichten binnen die actieve threads.
 
-Berichten uit verschillende roots worden als afzonderlijke gesprekken getoond. Commonplace doet niet alsof deze berichten rechtstreeks op elkaar antwoorden.
+Berichten uit verschillende roots worden als afzonderlijke gesprekken getoond. traditionele.media doet niet alsof deze berichten rechtstreeks op elkaar antwoorden.
 
 ## Verwijderingen en wijzigingen
 
@@ -72,7 +72,7 @@ Berichten uit verschillende roots worden als afzonderlijke gesprekken getoond. C
 - onderwerp- of standpuntclassificatie;
 - automatische samenvattingen;
 - gebruikerslogin;
-- reageren vanuit Commonplace;
+- reageren vanuit traditionele.media;
 - een eigen Lexicon;
 - personalisatie;
 - blijvende historie ouder dan 24 uur.

@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 
 const ORIGIN = "https://hackejandro.github.io";
+const SITE_ORIGINS = new Set([ORIGIN, "https://traditionele.media", "https://www.traditionele.media"]);
 const JETSTREAM = "wss://jetstream2.us-east.bsky.network/subscribe";
 const API = "https://public.api.bsky.app/xrpc";
 const SNAPSHOT_KEY = "feed:v3";
@@ -55,11 +56,13 @@ function responseHeaders(): HeadersInit {
   return { "Access-Control-Allow-Origin": ORIGIN, "Cache-Control": "public, max-age=60, s-maxage=300" };
 }
 
-function visitorHeaders(): HeadersInit {
+function visitorHeaders(request: Request): HeadersInit {
+  const origin = request.headers.get("Origin");
   return {
-    "Access-Control-Allow-Origin": ORIGIN,
+    "Access-Control-Allow-Origin": origin && SITE_ORIGINS.has(origin) ? origin : "https://traditionele.media",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Cache-Control": "no-store",
+    "Vary": "Origin",
   };
 }
 
@@ -590,21 +593,21 @@ export default {
   async fetch(request, env, ctx): Promise<Response> {
     const path = new URL(request.url).pathname;
     if (path === "/visitors") {
-      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: visitorHeaders() });
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: visitorHeaders(request) });
       if (request.method !== "GET" && request.method !== "POST") {
-        return new Response("Method not allowed", { status: 405, headers: visitorHeaders() });
+        return new Response("Method not allowed", { status: 405, headers: visitorHeaders(request) });
       }
       const current = Number(await env.COMMONPLACE.get(VISITOR_COUNT_KEY) ?? "0");
       const count = request.method === "POST" ? current + 1 : current;
       if (request.method === "POST") await env.COMMONPLACE.put(VISITOR_COUNT_KEY, String(count));
-      return Response.json({ count }, { headers: visitorHeaders() });
+      return Response.json({ count }, { headers: visitorHeaders(request) });
     }
     const instance = collector(env);
     if (path === "/health") {
       const state = await instance.status();
       return Response.json({ ok: true, ...state }, { headers: responseHeaders() });
     }
-    if (path !== "/feed") return new Response("Commonplace gedeelde feed");
+    if (path !== "/feed") return new Response("traditionele.media gedeelde feed");
     const snapshot = await env.COMMONPLACE.get<Snapshot>(SNAPSHOT_KEY, "json");
     if (!snapshot) {
       ctx.waitUntil(instance.refreshNow());

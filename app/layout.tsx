@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Commonplace',
-  description: 'Waar mensen over praten.',
+  title: 'traditionele.media',
+  description: 'ATProto-experimenten die sociale media anders organiseren.',
 };
 
 export default function RootLayout({

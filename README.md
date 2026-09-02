@@ -1,8 +1,8 @@
-# Commonplace
+# traditionele.media
 
-**Waar mensen over praten.**
+**ATProto-experimenten die sociale media anders organiseren.**
 
-Commonplace is een linkgerichte weergave van openbare gesprekken op ATProto. In plaats van afzonderlijke posters centraal te zetten, groepeert Commonplace bestaande berichten en gesprekken rond de link die wordt besproken.
+traditionele.media is een plek voor kleine, openbare experimenten bovenop ATProto. Het eerste experiment is een linkgerichte weergave van gesprekken: in plaats van afzonderlijke posters centraal te zetten, worden bestaande berichten gegroepeerd rond de link die wordt besproken.
 
 Deze repository bevat:
 
@@ -16,20 +16,20 @@ De zichtbare inhoud komt uit echte openbare ATProto-records. Er staat geen ficti
 
 ## Website
 
-De publieke prototypeversie wordt via GitHub Pages gepubliceerd op <https://hackejandro.github.io/commonplace/>. De statische Pages-versie staat in `docs/index.html`.
+De publieke versie wordt via GitHub Pages gepubliceerd. Tijdens de domeinmigratie blijft <https://hackejandro.github.io/commonplace/> als technisch terugvaladres beschikbaar; het publieke adres wordt <https://traditionele.media/>. De statische Pages-versie staat in `docs/index.html`.
 
 De gratis aggregatielaag draait als geplande GitHub Action. Iedere vijftien minuten haalt een Node-proces de Jetstream-achterstand vanaf een opgeslagen cursor op en publiceert het één nieuwe GitHub Pages-versie met een gedeelde `feed.json`. Als een startbericht geen taalveld heeft, kan een expliciet Nederlandstalig antwoord het bovenliggende linkgesprek alsnog toelaten; er wordt nog steeds geen taal automatisch herkend. Bluesky-redirects en directe artikel-URL's worden samengevoegd. Een link wordt alleen opgenomen wanneer minstens twee verschillende accounts erover posten of reageren. Daarna blijft de kaart 24 uur zichtbaar en worden nieuwe gesprekken en antwoorden toegevoegd. De homepage toont maximaal twintig linkkaarten, gesorteerd op de recentste startpost of reactie; er is geen aparte limiet op het aantal berichten binnen die kaarten. Websitebezoeken lezen uitsluitend het statische JSON-bestand en voeren geen verzamelwerk uit.
 
 ## MVP-regels
 
-Commonplace verwerkt voor de eerste versie uitsluitend bestaande `app.bsky.feed.post`-records.
+Het eerste experiment verwerkt uitsluitend bestaande `app.bsky.feed.post`-records.
 
 Een bericht wordt alleen opgenomen wanneer:
 
 1. het record expliciet een Nederlandse taalcode bevat in `langs` (`nl`, `nl-NL`, `nl-BE`, enzovoort);
 2. het bericht een link bevat, of een antwoord is binnen een gesprek dat al aan een link is gekoppeld.
 
-Commonplace gebruikt geen automatische taaldetectie, standpuntclassificatie, onderwerpherkenning of samenvattingen.
+traditionele.media gebruikt in dit experiment geen automatische taaldetectie, standpuntclassificatie, onderwerpherkenning of samenvattingen.
 
 ## Lokaal starten
 
