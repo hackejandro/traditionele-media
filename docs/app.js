@@ -13,7 +13,7 @@ function setStatus(state,text){status.dataset.state=state;statusText.textContent
 function liveStatus(){
   if(!generatedAt)return;
   const time=new Date(generatedAt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'});
-  const visitors=visitorCount===null?'':' – '+new Intl.NumberFormat('nl-NL').format(visitorCount)+' bezoekers hebben hier hun voordeel mee gedaan';
+  const visitors=visitorCount===null?'':' – '+new Intl.NumberFormat('nl-NL').format(visitorCount)+' '+(visitorCount===1?'bezoeker heeft':'bezoekers hebben')+' hier hun voordeel mee gedaan';
   setStatus('live','Bijgewerkt om '+time+visitors);
 }
 function render(){
