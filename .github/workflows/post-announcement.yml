@@ -1,0 +1,20 @@
+name: Post introductie op Eurosky
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Publish introduction
+        env:
+          EUROSKY_APP_PASSWORD: ${{ secrets.EUROSKY_APP_PASSWORD }}
+        run: node scripts/post-announcement.mjs
