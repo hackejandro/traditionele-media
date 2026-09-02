@@ -617,13 +617,13 @@ export default {
   },
   async scheduled(_controller, env): Promise<void> {
     const response = await fetch(
-      "https://api.github.com/repos/hackejandro/commonplace/actions/workflows/update-feed.yml/dispatches",
+      "https://api.github.com/repos/hackejandro/traditionele-media/actions/workflows/update-feed.yml/dispatches",
       {
         method: "POST",
         headers: {
           "Accept": "application/vnd.github+json",
           "Authorization": `Bearer ${env.GITHUB_TRIGGER_TOKEN}`,
-          "User-Agent": "commonplace-scheduler",
+          "User-Agent": "traditionele-media-scheduler",
           "X-GitHub-Api-Version": "2022-11-28",
         },
         body: JSON.stringify({ ref: "main" }),

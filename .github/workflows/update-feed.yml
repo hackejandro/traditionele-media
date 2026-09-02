@@ -1,8 +1,8 @@
-name: Update Commonplace feed
+name: Update traditionele.media feed
 
 on:
   schedule:
-    # Vermijd de drukke hele en kwartieruren waarop geplande runs vaker vertragen.
+    # Reservetimer naast de lichte Cloudflare-trigger.
     - cron: '11,26,41,56 * * * *'
   workflow_dispatch:
 
@@ -13,7 +13,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: commonplace-feed
+  group: traditionele-media-feed
   cancel-in-progress: false
 
 jobs:

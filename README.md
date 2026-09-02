@@ -16,7 +16,7 @@ De zichtbare inhoud komt uit echte openbare ATProto-records. Er staat geen ficti
 
 ## Website
 
-De publieke versie wordt via GitHub Pages gepubliceerd. Tijdens de domeinmigratie blijft <https://hackejandro.github.io/commonplace/> als technisch terugvaladres beschikbaar; het publieke adres wordt <https://traditionele.media/>. De statische Pages-versie staat in `docs/index.html`.
+De publieke versie wordt via GitHub Pages gepubliceerd op <https://traditionele.media/>. De statische Pages-versie staat in `docs/index.html`.
 
 De gratis aggregatielaag draait als geplande GitHub Action. Iedere vijftien minuten haalt een Node-proces de Jetstream-achterstand vanaf een opgeslagen cursor op en publiceert het één nieuwe GitHub Pages-versie met een gedeelde `feed.json`. Als een startbericht geen taalveld heeft, kan een expliciet Nederlandstalig antwoord het bovenliggende linkgesprek alsnog toelaten; er wordt nog steeds geen taal automatisch herkend. Bluesky-redirects en directe artikel-URL's worden samengevoegd. Een link wordt alleen opgenomen wanneer minstens twee verschillende accounts erover posten of reageren. Daarna blijft de kaart 24 uur zichtbaar en worden nieuwe gesprekken en antwoorden toegevoegd. De homepage toont maximaal twintig linkkaarten, gesorteerd op de recentste startpost of reactie; er is geen aparte limiet op het aantal berichten binnen die kaarten. Websitebezoeken lezen uitsluitend het statische JSON-bestand en voeren geen verzamelwerk uit.
 
