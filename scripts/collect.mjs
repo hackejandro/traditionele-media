@@ -238,11 +238,15 @@ async function buildFeed(state) {
       title: group.link.title,
       description: group.link.description,
       posts: hydrated,
-      updatedAt: Math.max(...hydrated.map((post) => new Date(post.createdAt).getTime())),
+      updatedAt: Math.max(...hydrated.flatMap((post) => [
+        new Date(post.createdAt).getTime(),
+        ...post.replies.map((reply) => new Date(reply.createdAt).getTime()),
+      ])),
     });
     nextFeatured.push(existing.get(url) || { url, admittedAt: now, expiresAt: now + DAY });
   }
   state.featured = nextFeatured;
+  items.sort((a, b) => b.updatedAt - a.updatedAt);
   return { generatedAt: new Date().toISOString(), expiresAfterHours: 24, items };
 }
 
