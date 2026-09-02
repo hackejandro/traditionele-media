@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 const FEED_PATH = 'docs/feed.json';
 const BOT_STATE_PATH = 'work/bot-state.json';
@@ -6,6 +6,9 @@ const SITE = 'https://traditionele.media/';
 const MAX_POSTS_PER_DAY = 8;
 const MAX_POST_LENGTH = 300;
 const NEW_ITEM_WINDOW = 30 * 60 * 1000;
+const MODE = process.env.BOT_MODE || 'dry-run';
+const HANDLE = process.env.EUROSKY_HANDLE || 'traditionelemedia.eurosky.social';
+const PDS = process.env.EUROSKY_PDS || 'https://eurosky.social';
 
 async function readJson(path, fallback) {
   try { return JSON.parse(await readFile(path, 'utf8')); }
@@ -32,6 +35,51 @@ function shorten(value, maximum) {
   return values.length <= maximum ? value.trim() : `${values.slice(0, maximum - 1).join('')}…`;
 }
 
+function linkFacet(text, url) {
+  const characterStart = text.indexOf(url);
+  const byteStart = Buffer.byteLength(text.slice(0, characterStart), 'utf8');
+  return {
+    index: { byteStart, byteEnd: byteStart + Buffer.byteLength(url, 'utf8') },
+    features: [{ $type: 'app.bsky.richtext.facet#link', uri: url }],
+  };
+}
+
+async function xrpc(method, path, body, accessJwt) {
+  const response = await fetch(`${PDS}/xrpc/${path}`, {
+    method,
+    headers: {
+      'content-type': 'application/json',
+      ...(accessJwt ? { authorization: `Bearer ${accessJwt}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`${path} failed (${response.status}): ${detail.slice(0, 500)}`);
+  }
+  return response.json();
+}
+
+async function publish(text, linkUrl) {
+  const password = process.env.EUROSKY_APP_PASSWORD;
+  if (!password) throw new Error('EUROSKY_APP_PASSWORD is missing');
+  const session = await xrpc('POST', 'com.atproto.server.createSession', {
+    identifier: HANDLE,
+    password,
+  });
+  return xrpc('POST', 'com.atproto.repo.createRecord', {
+    repo: session.did,
+    collection: 'app.bsky.feed.post',
+    record: {
+      $type: 'app.bsky.feed.post',
+      text,
+      facets: [linkFacet(text, linkUrl)],
+      langs: ['nl'],
+      createdAt: new Date().toISOString(),
+    },
+  }, session.accessJwt);
+}
+
 const feed = await readJson(FEED_PATH, { items: [] });
 const state = await readJson(BOT_STATE_PATH, { posts: [] });
 const now = Date.now();
@@ -49,7 +97,7 @@ const eligible = feed.items
   .sort((a, b) => b.item.updatedAt - a.item.updatedAt || b.score.conversations - a.score.conversations || b.score.people - a.score.people);
 
 if (postedToday >= MAX_POSTS_PER_DAY || eligible.length === 0) {
-  console.log(JSON.stringify({ event: 'bot_dry_run', wouldPost: false, postedToday, dailyLimit: MAX_POSTS_PER_DAY }));
+  console.log(JSON.stringify({ event: MODE === 'live' ? 'bot_skipped' : 'bot_dry_run', wouldPost: false, postedToday, dailyLimit: MAX_POSTS_PER_DAY }));
   process.exit(0);
 }
 
@@ -62,11 +110,20 @@ const suffix = `\n\n${score.conversations} ${conversationLabel} · ${score.messa
 const title = shorten(item.title || item.domain, MAX_POST_LENGTH - [...prefix, ...suffix].length);
 const text = `${prefix}${title}${suffix}`;
 
-console.log(JSON.stringify({
-  event: 'bot_dry_run',
-  wouldPost: true,
-  handle: 'traditionelemedia.eurosky.social',
-  pds: 'https://eurosky.social',
-  dailyLimit: MAX_POSTS_PER_DAY,
-  candidate: { id: item.id, url: item.url, text },
-}));
+if (MODE !== 'live') {
+  console.log(JSON.stringify({
+    event: 'bot_dry_run',
+    wouldPost: true,
+    handle: HANDLE,
+    pds: PDS,
+    dailyLimit: MAX_POSTS_PER_DAY,
+    candidate: { id: item.id, url: item.url, text },
+  }));
+  process.exit(0);
+}
+
+const result = await publish(text, url);
+state.posts.push({ id: item.id, url: item.url, postedAt: Date.now(), uri: result.uri, cid: result.cid });
+await mkdir('work', { recursive: true });
+await writeFile(BOT_STATE_PATH, `${JSON.stringify(state, null, 2)}\n`);
+console.log(JSON.stringify({ event: 'bot_posted', id: item.id, uri: result.uri, postedToday: postedToday + 1, dailyLimit: MAX_POSTS_PER_DAY }));

@@ -43,14 +43,20 @@ jobs:
         run: node scripts/collect.mjs
 
       - name: Prepare bot post (dry run)
+        env:
+          BOT_MODE: dry-run
+          EUROSKY_APP_PASSWORD: ${{ secrets.EUROSKY_APP_PASSWORD }}
         run: node scripts/prepare-bot-post.mjs
 
       - name: Save collector state
         uses: actions/upload-artifact@v4
         with:
           name: collector-state
-          path: work/collector-state.json
-          retention-days: 2
+          path: |
+            work/collector-state.json
+            work/bot-state.json
+          if-no-files-found: warn
+          retention-days: 7
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
