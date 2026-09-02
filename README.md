@@ -8,8 +8,8 @@ Deze repository bevat:
 
 - een live Nederlandstalig frontendprototype op GitHub Pages;
 - een Cloudflare Worker die openbare ATProto Jetstream-berichten filtert;
-- lokale aggregatie van links en berichten in de browser;
-- het eerste databaseschema voor een latere gedeelde indexer;
+- centrale aggregatie van links en berichten in Cloudflare;
+- SQLite-opslag in een Durable Object en een gedeelde KV-snapshot;
 - de afgesproken, bewust beperkte regels voor de MVP.
 
 De zichtbare inhoud komt uit echte openbare ATProto-records. Er staat geen fictieve voorbeeldinhoud meer in de gepubliceerde interface.
@@ -18,7 +18,7 @@ De zichtbare inhoud komt uit echte openbare ATProto-records. Er staat geen ficti
 
 De publieke prototypeversie wordt via GitHub Pages gepubliceerd op <https://hackejandro.github.io/commonplace/>. De statische Pages-versie staat in `docs/index.html`.
 
-De gratis aggregatielaag draait op Cloudflare Workers. Een Durable Object houdt een centrale Jetstream-verbinding actief en bewaart Nederlandstalige linkberichten incrementeel in SQLite. Als een startbericht geen taalveld heeft, kan een expliciet Nederlandstalig antwoord het bovenliggende linkgesprek alsnog toelaten; er wordt nog steeds geen taal automatisch herkend. Bluesky-redirects en directe artikel-URL's worden samengevoegd. Iedere vijftien minuten wordt één gedeelde momentopname gemaakt. Een link wordt alleen opgenomen wanneer minstens twee verschillende accounts erover posten of reageren. Daarna blijft de kaart 24 uur zichtbaar en worden nieuwe gesprekken en antwoorden toegevoegd. De homepage toont maximaal twintig linkkaarten; er is geen aparte limiet op het aantal berichten binnen die kaarten.
+De gratis aggregatielaag draait op Cloudflare Workers. Iedere vijftien minuten haalt een geplande gewone Worker de Jetstream-achterstand op en stuurt alleen relevante Nederlandstalige records in één bundel naar een Durable Object met SQLite-opslag. Zo tellen wereldwijde, irrelevante Jetstream-berichten niet langer afzonderlijk mee voor de Durable Objects-limiet. Als een startbericht geen taalveld heeft, kan een expliciet Nederlandstalig antwoord het bovenliggende linkgesprek alsnog toelaten; er wordt nog steeds geen taal automatisch herkend. Bluesky-redirects en directe artikel-URL's worden samengevoegd. Na iedere verzamelronde wordt één gedeelde KV-momentopname gemaakt. Een link wordt alleen opgenomen wanneer minstens twee verschillende accounts erover posten of reageren. Daarna blijft de kaart 24 uur zichtbaar en worden nieuwe gesprekken en antwoorden toegevoegd. De homepage toont maximaal twintig linkkaarten; er is geen aparte limiet op het aantal berichten binnen die kaarten. Websitebezoeken lezen uitsluitend de gedeelde KV-snapshot en roepen de Durable Object niet aan.
 
 ## MVP-regels
 

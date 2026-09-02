@@ -4,10 +4,13 @@ const ORIGIN = "https://hackejandro.github.io";
 const JETSTREAM = "wss://jetstream2.us-east.bsky.network/subscribe";
 const API = "https://public.api.bsky.app/xrpc";
 const SNAPSHOT_KEY = "feed:v3";
+const CURSOR_KEY = "jetstream:cursor:v1";
 const DAY = 24 * 60 * 60 * 1000;
 const SNAPSHOT_INTERVAL = 15 * 60 * 1000;
+const COLLECTION_WINDOW = 50 * 1000;
 const MAX_CANDIDATES = 300;
 const MAX_ITEMS = 20;
+const MAX_THREAD_HYDRATIONS = 20;
 
 type Link = { url: string; title: string; description: string };
 type Candidate = { uri: string; did: string; rkey: string; text: string; createdAt: string; links: Link[] };
@@ -37,6 +40,13 @@ type JetEvent = {
     embed?: { external?: { uri?: string; title?: string; description?: string } };
     reply?: { root?: { uri?: string }; parent?: { uri?: string } };
   } };
+};
+
+type CollectedBatch = {
+  candidates: Candidate[];
+  rootUris: string[];
+  cursor: number;
+  lastEventAt: string | null;
 };
 
 function responseHeaders(): HeadersInit {
@@ -97,6 +107,64 @@ function candidateFrom(event: JetEvent): Candidate | null {
   };
 }
 
+async function collectJetstream(env: Env): Promise<CollectedBatch> {
+  const storedCursor = Number(await env.COMMONPLACE.get(CURSOR_KEY));
+  const startCursor = Number.isFinite(storedCursor) && storedCursor > 0
+    ? storedCursor
+    : (Date.now() - SNAPSHOT_INTERVAL) * 1000;
+  const targetCursor = (Date.now() - 5_000) * 1000;
+  const endpoint = new URL(JETSTREAM);
+  endpoint.searchParams.append("wantedCollections", "app.bsky.feed.post");
+  endpoint.searchParams.set("maxMessageSizeBytes", "50000");
+  endpoint.searchParams.set("cursor", String(startCursor));
+
+  const candidates = new Map<string, Candidate>();
+  const rootUris = new Set<string>();
+  let cursor = startCursor;
+  let lastEventAt: string | null = null;
+
+  await new Promise<void>((resolve) => {
+    const socket = new WebSocket(endpoint);
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      if (socket.readyState <= WebSocket.OPEN) socket.close(1000, "batch complete");
+      resolve();
+    };
+    const timer = setTimeout(finish, COLLECTION_WINDOW);
+    socket.addEventListener("message", (message) => {
+      if (typeof message.data !== "string") return;
+      try {
+        const value: unknown = JSON.parse(message.data);
+        if (!value || typeof value !== "object") return;
+        const event = value as JetEvent;
+        if (event.time_us) {
+          cursor = Math.max(cursor, event.time_us);
+          lastEventAt = new Date(Math.trunc(event.time_us / 1000)).toISOString();
+        }
+        const candidate = candidateFrom(event);
+        if (candidate) {
+          const existing = candidates.get(candidate.uri);
+          if (existing) {
+            const links = new Map(existing.links.map((link) => [link.url, link]));
+            for (const link of candidate.links) links.set(link.url, link);
+            existing.links = [...links.values()];
+          } else candidates.set(candidate.uri, candidate);
+        }
+        const rootUri = event.commit?.record?.reply?.root?.uri;
+        if (!candidate && rootUri && isDutch(event.commit?.record?.langs)) rootUris.add(rootUri);
+        if (cursor >= targetCursor) finish();
+      } catch { /* Een ongeldig Jetstream-frame wordt genegeerd. */ }
+    });
+    socket.addEventListener("close", finish);
+    socket.addEventListener("error", finish);
+  });
+
+  return { candidates: [...candidates.values()], rootUris: [...rootUris], cursor, lastEventAt };
+}
+
 async function postViews(posts: Candidate[]): Promise<Map<string, PostView>> {
   const result = new Map<string, PostView>();
   for (let offset = 0; offset < posts.length; offset += 25) {
@@ -154,9 +222,6 @@ async function hydrate(candidate: Candidate): Promise<FeedPost | null> {
 }
 
 export class CommonplaceCollector extends DurableObject<Env> {
-  private socket: WebSocket | null = null;
-  private latestCursor = 0;
-  private framesSinceCursorWrite = 0;
   private building = false;
   private pendingRoots = new Set<string>();
 
@@ -184,25 +249,26 @@ export class CommonplaceCollector extends DurableObject<Env> {
         CREATE INDEX IF NOT EXISTS featured_expires_at ON featured(expires_at);
         CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
       `);
-      const cursor = this.ctx.storage.sql.exec<{ value: string }>("SELECT value FROM meta WHERE key = 'cursor'").toArray()[0];
-      this.latestCursor = Number(cursor?.value) || 0;
     });
   }
 
-  async ensureStarted(): Promise<void> {
-    if (!this.socket || this.socket.readyState > WebSocket.OPEN) this.connect();
-    const alarm = await this.ctx.storage.getAlarm();
-    if (alarm === null) await this.ctx.storage.setAlarm(Date.now() + 60_000);
-  }
-
   async tick(): Promise<void> {
-    await this.ensureStarted();
     await this.refreshIfDue();
   }
 
   async refreshNow(): Promise<void> {
-    await this.ensureStarted();
     await this.buildSnapshot();
+  }
+
+  async ingestBatch(candidates: Candidate[], rootUris: string[], lastEventAt: string | null): Promise<void> {
+    for (const candidate of candidates) this.storeCandidate(candidate);
+    await this.storeRootsForDutchReplies(rootUris);
+    if (lastEventAt) {
+      this.ctx.storage.sql.exec(
+        "INSERT INTO meta(key, value) VALUES('last_event_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        lastEventAt,
+      );
+    }
   }
 
   async backfillRoot(rootUri: string): Promise<void> {
@@ -210,12 +276,13 @@ export class CommonplaceCollector extends DurableObject<Env> {
     await this.buildSnapshot();
   }
 
-  async status(): Promise<{ connected: boolean; candidates: number; lastEventAt: string | null; generatedAt: string | null }> {
+  async status(): Promise<{ connected: boolean; mode: "scheduled"; candidates: number; lastEventAt: string | null; generatedAt: string | null }> {
     const count = this.ctx.storage.sql.exec<{ count: number }>("SELECT COUNT(DISTINCT uri) AS count FROM candidates").one().count;
     const lastEvent = this.ctx.storage.sql.exec<{ value: string }>("SELECT value FROM meta WHERE key = 'last_event_at'").toArray()[0];
     const snapshot = await this.env.COMMONPLACE.get<Snapshot>(SNAPSHOT_KEY, "json");
     return {
-      connected: this.socket?.readyState === WebSocket.OPEN,
+      connected: lastEvent?.value ? Date.now() - new Date(lastEvent.value).getTime() < 30 * 60 * 1000 : false,
+      mode: "scheduled",
       candidates: count,
       lastEventAt: lastEvent?.value ?? null,
       generatedAt: snapshot?.generatedAt ?? null,
@@ -223,59 +290,7 @@ export class CommonplaceCollector extends DurableObject<Env> {
   }
 
   async alarm(): Promise<void> {
-    await this.ensureStarted();
-    await this.refreshIfDue();
-    await this.ctx.storage.setAlarm(Date.now() + 60_000);
-  }
-
-  private connect(): void {
-    if (this.socket && this.socket.readyState <= WebSocket.OPEN) return;
-    const url = new URL(JETSTREAM);
-    url.searchParams.append("wantedCollections", "app.bsky.feed.post");
-    url.searchParams.set("maxMessageSizeBytes", "50000");
-    const fallback = (Date.now() - 5 * 60 * 1000) * 1000;
-    url.searchParams.set("cursor", String(Math.max(this.latestCursor - 60_000_000, fallback)));
-    const socket = new WebSocket(url);
-    this.socket = socket;
-    socket.addEventListener("message", (message) => this.handleMessage(message));
-    socket.addEventListener("close", () => this.handleDisconnect(socket));
-    socket.addEventListener("error", () => this.handleDisconnect(socket));
-  }
-
-  private handleMessage(message: MessageEvent): void {
-    if (typeof message.data !== "string") return;
-    try {
-      const value: unknown = JSON.parse(message.data);
-      if (!value || typeof value !== "object") return;
-      const event = value as JetEvent;
-      if (event.time_us) {
-        this.latestCursor = Math.max(this.latestCursor, event.time_us);
-        this.framesSinceCursorWrite += 1;
-      }
-      const candidate = candidateFrom(event);
-      if (candidate) this.storeCandidate(candidate);
-      const rootUri = event.commit?.record?.reply?.root?.uri;
-      if (!candidate && rootUri && isDutch(event.commit?.record?.langs)) {
-        this.ctx.waitUntil(this.storeRootForDutchReply(rootUri));
-      }
-      if (candidate || this.framesSinceCursorWrite >= 500) this.persistCursor();
-    } catch { /* Een ongeldig Jetstream-frame wordt genegeerd. */ }
-  }
-
-  private handleDisconnect(socket: WebSocket): void {
-    if (this.socket !== socket) return;
-    this.socket = null;
-    this.persistCursor();
-    this.ctx.waitUntil(this.ctx.storage.setAlarm(Date.now() + 2_000));
-  }
-
-  private persistCursor(): void {
-    if (!this.latestCursor) return;
-    this.ctx.storage.sql.exec(
-      "INSERT INTO meta(key, value) VALUES('cursor', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-      String(this.latestCursor),
-    );
-    this.framesSinceCursorWrite = 0;
+    // Een eventueel alarm van de vorige continue collector mag één keer uitdoven.
   }
 
   private storeCandidate(candidate: Candidate): void {
@@ -334,6 +349,40 @@ export class CommonplaceCollector extends DurableObject<Env> {
       }));
     } finally {
       this.pendingRoots.delete(rootUri);
+    }
+  }
+
+  private async storeRootsForDutchReplies(rootUris: string[]): Promise<void> {
+    const unknown = [...new Set(rootUris)].filter((uri) => {
+      const row = this.ctx.storage.sql.exec<{ count: number }>(
+        "SELECT COUNT(*) AS count FROM candidates WHERE uri = ?",
+        uri,
+      ).one();
+      return row.count === 0;
+    });
+    for (let offset = 0; offset < unknown.length; offset += 25) {
+      const endpoint = new URL(`${API}/app.bsky.feed.getPosts`);
+      for (const uri of unknown.slice(offset, offset + 25)) endpoint.searchParams.append("uris", uri);
+      const response = await fetch(endpoint);
+      if (!response.ok) continue;
+      const data: unknown = await response.json();
+      const values = data && typeof data === "object" ? (data as { posts?: unknown }).posts : null;
+      if (!Array.isArray(values)) continue;
+      for (const value of values) {
+        if (!value || typeof value !== "object") continue;
+        const root = value as PostView;
+        if (!root.uri || !root.author?.did || !root.record) continue;
+        const links = linksFrom({ commit: { record: root.record } });
+        if (!links.length) continue;
+        this.storeCandidate({
+          uri: root.uri,
+          did: root.author.did,
+          rkey: root.uri.replace("at://", "").split("/")[2] ?? "",
+          text: root.record.text ?? "",
+          createdAt: root.record.createdAt ?? root.indexedAt ?? new Date().toISOString(),
+          links,
+        });
+      }
     }
   }
 
@@ -452,13 +501,24 @@ export class CommonplaceCollector extends DurableObject<Env> {
       const roots = [...new Map(
         orderedGroups.flatMap((group) => group.posts).map((post) => [post.uri, post]),
       ).values()];
-      const featuredViews = await postViews(roots);
+      const featuredViews = await postViews(roots.filter((root) => !views.has(root.uri)));
       for (const [uri, view] of featuredViews) views.set(uri, view);
+      const previousByUrl = new Map((previous?.items ?? []).map((item) => [item.url, item]));
+      const previousPosts = new Map(
+        (previous?.items ?? []).flatMap((item) => item.posts).map((post) => [post.uri, post]),
+      );
       const hydrated = new Map<string, FeedPost>();
-      for (let offset = 0; offset < roots.length; offset += 4) {
-        for (const post of await Promise.all(roots.slice(offset, offset + 4).map(async (candidate) => {
+      let hydrationCount = 0;
+      const prioritizedRoots = [...roots].sort((a, b) => Number(previousPosts.has(a.uri)) - Number(previousPosts.has(b.uri)));
+      for (let offset = 0; offset < prioritizedRoots.length; offset += 4) {
+        for (const post of await Promise.all(prioritizedRoots.slice(offset, offset + 4).map(async (candidate) => {
           const view = views.get(candidate.uri);
-          if ((view?.replyCount ?? 0) > 0) return hydrate(candidate);
+          if ((view?.replyCount ?? 0) > 0 && hydrationCount < MAX_THREAD_HYDRATIONS) {
+            hydrationCount += 1;
+            return hydrate(candidate);
+          }
+          const previousPost = previousPosts.get(candidate.uri);
+          if (previousPost) return previousPost;
           return {
             ...candidate,
             text: view?.record?.text ?? candidate.text,
@@ -470,7 +530,6 @@ export class CommonplaceCollector extends DurableObject<Env> {
           if (post) hydrated.set(post.uri, post);
         }
       }
-      const previousByUrl = new Map((previous?.items ?? []).map((item) => [item.url, item]));
       const items: FeedItem[] = [];
       for (const group of orderedGroups) {
         const posts = group.posts.map((post) => hydrated.get(post.uri)).filter((post): post is FeedPost => Boolean(post));
@@ -526,7 +585,6 @@ export default {
       return Response.json({ ok: true, ...state }, { headers: responseHeaders() });
     }
     if (path !== "/feed") return new Response("Commonplace gedeelde feed");
-    ctx.waitUntil(instance.tick());
     const snapshot = await env.COMMONPLACE.get<Snapshot>(SNAPSHOT_KEY, "json");
     if (!snapshot) {
       ctx.waitUntil(instance.refreshNow());
@@ -535,6 +593,17 @@ export default {
     return Response.json(snapshot, { headers: responseHeaders() });
   },
   async scheduled(_controller, env): Promise<void> {
-    await collector(env).tick();
+    const batch = await collectJetstream(env);
+    const instance = collector(env);
+    await instance.ingestBatch(batch.candidates, batch.rootUris, batch.lastEventAt);
+    await env.COMMONPLACE.put(CURSOR_KEY, String(batch.cursor));
+    await instance.refreshNow();
+    console.log(JSON.stringify({
+      event: "jetstream_batch_complete",
+      candidates: batch.candidates.length,
+      replyRoots: batch.rootUris.length,
+      cursor: batch.cursor,
+      lastEventAt: batch.lastEventAt,
+    }));
   },
 } satisfies ExportedHandler<Env>;

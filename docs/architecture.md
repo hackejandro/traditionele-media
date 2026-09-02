@@ -9,21 +9,22 @@ De eerste operationele versie is een read-only live weergave van bestaande openb
 ```text
 ATProto Jetstream
     ↓
-Cloudflare Worker: alleen app.bsky.feed.post
+Geplande Cloudflare Worker (iedere 15 minuten)
     ↓
-Live filter
+Inhaalslag vanaf opgeslagen Jetstream-cursor
     ├── accepteert alleen expliciete nl-taalcodes
     ├── accepteert alleen berichten met een external embed of linkfacet
-    └── stuurt echte records door naar de geopende webpagina
+    └── verstuurt relevante records in één bundel
     ↓
-Browser
+Durable Object met SQLite
     ├── normaliseert en groepeert links
-    ├── haalt eens per 15 minuten de bijbehorende threads op
+    ├── haalt de bijbehorende threads op
     ├── telt uitsluitend antwoorden met een expliciete nl-taalcode
-    ├── verbergt links zonder Nederlandstalig antwoord
+    ├── verbergt links zonder bijdragen van minstens twee accounts
     ├── sorteert op actieve gespreksthreads en daarna berichten
-    ├── bewaart resultaten maximaal 24 uur in localStorage
-    └── toont de oorspronkelijke berichten per link
+    └── bewaart resultaten maximaal 24 uur
+    ↓
+Gedeelde KV-snapshot
     ↓
 GitHub Pages-interface
 ```
@@ -62,7 +63,7 @@ Berichten uit verschillende roots worden als afzonderlijke gesprekken getoond. C
 ## Verwijderingen en wijzigingen
 
 - Een gewijzigd record wordt opnieuw verwerkt wanneer het via de live stroom binnenkomt.
-- De browser verwijdert lokaal bewaarde records na maximaal 24 uur.
+- De centrale index verwijdert records en kaarten na maximaal 24 uur.
 - Volledige verwerking van verwijderingen en accountstatussen vereist de latere gedeelde index.
 
 ## Niet in de eerste versie
@@ -74,4 +75,4 @@ Berichten uit verschillende roots worden als afzonderlijke gesprekken getoond. C
 - reageren vanuit Commonplace;
 - een eigen Lexicon;
 - personalisatie;
-- een centrale database of blijvende gedeelde historie.
+- blijvende historie ouder dan 24 uur.
