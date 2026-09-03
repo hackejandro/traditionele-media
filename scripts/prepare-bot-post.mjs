@@ -5,7 +5,7 @@ const BOT_STATE_PATH = 'work/bot-state.json';
 const SITE = 'https://traditionele.media/';
 const MAX_POSTS_PER_DAY = 8;
 const MAX_POST_LENGTH = 300;
-const NEW_ITEM_WINDOW = 30 * 60 * 1000;
+const ACTIVE_WINDOW = 24 * 60 * 60 * 1000;
 const MODE = process.env.BOT_MODE || 'dry-run';
 const HANDLE = process.env.EUROSKY_HANDLE || 'traditionelemedia.eurosky.social';
 const PDS = process.env.EUROSKY_PDS || 'https://eurosky.social';
@@ -92,7 +92,7 @@ const eligible = feed.items
   .filter(({ item, score }) =>
     item.id &&
     score.people >= 2 &&
-    now - Number(item.firstSeenAt) <= NEW_ITEM_WINDOW &&
+    now - Number(item.updatedAt) <= ACTIVE_WINDOW &&
     !postedUrls.has(item.url))
   .sort((a, b) => b.item.updatedAt - a.item.updatedAt || b.score.conversations - a.score.conversations || b.score.people - a.score.people);
 
