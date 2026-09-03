@@ -44,6 +44,36 @@ function linkFacet(text, url) {
   };
 }
 
+function starterReply(posts) {
+  const header = 'Inclusief gesprekken gestart door:';
+  const starters = [];
+  const seen = new Set();
+  let text = header;
+  for (const post of posts) {
+    const handle = String(post.handle || '').replace(/^@/, '').trim();
+    if (!handle || !post.did || seen.has(post.did)) continue;
+    const line = `@${handle}`;
+    const next = `${text}\n\n${line}`;
+    if ([...next].length > MAX_POST_LENGTH) continue;
+    text = next;
+    starters.push({ handle, did: post.did });
+    seen.add(post.did);
+  }
+  const facets = [];
+  let from = 0;
+  for (const starter of starters) {
+    const tag = `@${starter.handle}`;
+    const characterStart = text.indexOf(tag, from);
+    const byteStart = Buffer.byteLength(text.slice(0, characterStart), 'utf8');
+    facets.push({
+      index: { byteStart, byteEnd: byteStart + Buffer.byteLength(tag, 'utf8') },
+      features: [{ $type: 'app.bsky.richtext.facet#mention', did: starter.did }],
+    });
+    from = characterStart + tag.length;
+  }
+  return { text, facets, starters };
+}
+
 async function xrpc(method, path, body, accessJwt) {
   const response = await fetch(`${PDS}/xrpc/${path}`, {
     method,
@@ -60,14 +90,14 @@ async function xrpc(method, path, body, accessJwt) {
   return response.json();
 }
 
-async function publish(text, linkUrl) {
+async function publish(text, linkUrl, reply) {
   const password = process.env.EUROSKY_APP_PASSWORD;
   if (!password) throw new Error('EUROSKY_APP_PASSWORD is missing');
   const session = await xrpc('POST', 'com.atproto.server.createSession', {
     identifier: HANDLE,
     password,
   });
-  return xrpc('POST', 'com.atproto.repo.createRecord', {
+  const root = await xrpc('POST', 'com.atproto.repo.createRecord', {
     repo: session.did,
     collection: 'app.bsky.feed.post',
     record: {
@@ -78,6 +108,22 @@ async function publish(text, linkUrl) {
       createdAt: new Date().toISOString(),
     },
   }, session.accessJwt);
+  const response = await xrpc('POST', 'com.atproto.repo.createRecord', {
+    repo: session.did,
+    collection: 'app.bsky.feed.post',
+    record: {
+      $type: 'app.bsky.feed.post',
+      text: reply.text,
+      facets: reply.facets,
+      reply: {
+        root: { uri: root.uri, cid: root.cid },
+        parent: { uri: root.uri, cid: root.cid },
+      },
+      langs: ['nl'],
+      createdAt: new Date().toISOString(),
+    },
+  }, session.accessJwt);
+  return { root, reply: response };
 }
 
 const feed = await readJson(FEED_PATH, { items: [] });
@@ -109,6 +155,7 @@ const prefix = 'Nieuw gesprek op traditionele.media\n\n';
 const suffix = `\n\n${score.conversations} ${conversationLabel} · ${score.messages} berichten · ${score.people} ${peopleLabel}\n\nBekijk wat verschillende mensen erover zeggen:\n${url}`;
 const title = shorten(item.title || item.domain, MAX_POST_LENGTH - [...prefix, ...suffix].length);
 const text = `${prefix}${title}${suffix}`;
+const reply = starterReply(item.posts);
 
 if (MODE !== 'live') {
   console.log(JSON.stringify({
@@ -117,13 +164,29 @@ if (MODE !== 'live') {
     handle: HANDLE,
     pds: PDS,
     dailyLimit: MAX_POSTS_PER_DAY,
-    candidate: { id: item.id, url: item.url, text },
+    candidate: { id: item.id, url: item.url, text, replyText: reply.text, mentionedAccounts: reply.starters.length },
   }));
   process.exit(0);
 }
 
-const result = await publish(text, url);
-state.posts.push({ id: item.id, url: item.url, postedAt: Date.now(), uri: result.uri, cid: result.cid });
+const result = await publish(text, url, reply);
+state.posts.push({
+  id: item.id,
+  url: item.url,
+  postedAt: Date.now(),
+  uri: result.root.uri,
+  cid: result.root.cid,
+  replyUri: result.reply.uri,
+  replyCid: result.reply.cid,
+});
 await mkdir('work', { recursive: true });
 await writeFile(BOT_STATE_PATH, `${JSON.stringify(state, null, 2)}\n`);
-console.log(JSON.stringify({ event: 'bot_posted', id: item.id, uri: result.uri, postedToday: postedToday + 1, dailyLimit: MAX_POSTS_PER_DAY }));
+console.log(JSON.stringify({
+  event: 'bot_thread_posted',
+  id: item.id,
+  uri: result.root.uri,
+  replyUri: result.reply.uri,
+  mentionedAccounts: reply.starters.length,
+  postedToday: postedToday + 1,
+  dailyLimit: MAX_POSTS_PER_DAY,
+}));
