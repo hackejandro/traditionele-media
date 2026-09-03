@@ -6,7 +6,70 @@
   <meta name="description" content="traditionele.media — Wat als we niet accounts maar links centraal zetten op sociale media?">
   <title>traditionele.media</title>
   <style>
-    :root{--page:#f5f5f3;--surface:#fff;--soft:#ededeb;--text:#111;--muted:#696969;--border:#dededb;--accent:#246243;--warn:#333}*{box-sizing:border-box}html{background:var(--page)}body{margin:0;background:var(--page);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,a{font:inherit}.site-shell{min-height:100vh}.site-note{width:min(100% - 32px,690px);margin:0 auto;padding-top:24px;color:var(--muted);font-size:11px;line-height:1.5}.site-note a{color:var(--accent)}.site-header{display:flex;align-items:center;justify-content:space-between;height:64px;padding:0 28px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.94)}.site-header p{margin:0;color:var(--muted);font-size:13px}.brand{display:flex;align-items:center;gap:10px;padding:0;border:0;background:transparent;color:var(--text);font-weight:600;letter-spacing:-.02em;cursor:pointer}.brand-mark{position:relative;width:28px;height:28px;border:2px solid var(--text);border-radius:8px}.brand-mark:after{content:"";position:absolute;top:12px;right:6px;left:6px;height:2px;background:var(--text);transform:rotate(-18deg)}.feed,.detail{width:min(100% - 32px,690px);margin:0 auto;padding:22px 0 64px}.feed-intro{margin-bottom:22px}h1,h2,p{margin-top:0}.feed h1,.article-card h1{margin-bottom:7px;font-size:clamp(25px,5vw,31px);line-height:1.18;letter-spacing:-.035em}.feed-intro p,.article-card p,.language-note,.empty-state{color:var(--muted)}.feed-intro p{margin-bottom:0;font-size:14px}.live-status{display:flex;align-items:center;gap:8px;margin-top:13px;color:var(--muted);font-size:12px}.live-dot{width:7px;height:7px;border-radius:50%;background:#aaa}.live-status[data-state="live"] .live-dot{background:#222;box-shadow:0 0 0 4px rgba(0,0,0,.07)}.live-status[data-state="error"]{color:var(--warn)}.live-status[data-state="error"] .live-dot{background:var(--warn)}.link-list{display:grid;gap:14px}.empty-state{padding:26px 20px;text-align:center;border:1px dashed var(--border);border-radius:14px;background:rgba(255,255,255,.45);font-size:13px;line-height:1.55}.link-card{display:grid;width:100%;padding:19px 20px 15px;text-align:left;color:var(--text);border:1px solid var(--border);border-radius:14px;background:var(--surface);cursor:pointer;transition:border-color 140ms ease,transform 140ms ease}.link-card:hover{border-color:#777;transform:translateY(-1px)}.link-card:focus-visible{outline:3px solid rgba(0,0,0,.16);outline-offset:2px}.domain{margin-bottom:7px;color:var(--muted);font-size:12px}.link-card>strong{font-size:18px;line-height:1.35;letter-spacing:-.015em}.description{margin-top:7px;color:var(--muted);font-size:13px;line-height:1.5}.card-meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:15px;padding-top:12px;color:var(--muted);border-top:1px solid var(--border);font-size:12px}.open-label{margin-left:auto;color:var(--accent)}.back-button{margin-bottom:24px;padding:0;color:var(--accent);border:0;background:transparent;cursor:pointer}.article-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;padding:23px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}.article-card p{margin-bottom:0;font-size:13px;line-height:1.55}.article-button{align-self:start;padding:10px 13px;color:#fff;text-decoration:none;border:0;border-radius:9px;background:var(--accent)}.article-meta{display:flex;flex-wrap:wrap;grid-column:1/-1;gap:8px 20px;padding-top:14px;color:var(--muted);border-top:1px solid var(--border);font-size:12px}.language-note{margin:12px 2px 30px;font-size:12px;line-height:1.5}.conversation-list h2{margin-bottom:4px;font-size:18px;letter-spacing:-.02em}.conversation{position:relative;padding:20px 2px;border-bottom:1px solid var(--border)}.conversation.reply{margin-left:40px;padding-left:18px;border-left:1px solid #c9c9c6}.conversation.reply:before{content:"";position:absolute;top:34px;left:-1px;width:11px;border-top:1px solid #c9c9c6}.conversation-author{display:flex;align-items:center;gap:10px}.conversation-author div{display:grid;gap:1px}.conversation-author strong{font-size:13px}.conversation-author div span{color:var(--muted);font-size:11px}.avatar{display:grid;place-items:center;width:30px;height:30px;color:#333;border:1px solid #d5d5d2;border-radius:50%;background:var(--soft);font-size:10px;font-weight:600}.conversation>p{margin:10px 0 10px 40px;font-size:14px;line-height:1.55;white-space:pre-wrap}.conversation-meta{display:flex;flex-wrap:wrap;gap:8px 17px;margin-left:40px;color:var(--muted);font-size:12px}.conversation-meta a{color:var(--accent);text-decoration:none}.hidden{display:none}@media(max-width:560px){.site-note{width:min(100% - 24px,690px);padding-top:18px}.site-header{height:60px;padding:0 16px}.site-header p{display:none}.feed,.detail{width:min(100% - 24px,690px);padding-top:18px}.article-card{grid-template-columns:1fr;padding:19px}.article-button{justify-self:start}.article-meta{grid-column:1}.open-label{width:100%;margin-left:0}.conversation.reply{margin-left:20px;padding-left:12px}}@media(prefers-reduced-motion:reduce){.link-card{transition:none}}
+    :root{--page:#f5f2e8;--surface:#faf8f1;--text:#121212;--muted:#62625d;--line:#171717;--soft-line:#c9c6bb;--accent:#246243;--serif:"Iowan Old Style","Baskerville","Times New Roman",serif;--sans:"Helvetica Neue",Helvetica,Arial,sans-serif}
+    *{box-sizing:border-box}
+    html{background:var(--page)}
+    body{margin:0;background:var(--page);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+    button,a{font:inherit}
+    button{color:inherit}
+    h1,h2,p{margin-top:0}
+    .site-shell{min-height:100vh}
+    .site-note,.feed,.detail{width:min(calc(100% - 64px),1180px);margin-inline:auto}
+    .site-note{padding:26px 0 20px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.5;letter-spacing:.01em}
+    .site-note a{color:var(--accent);font-weight:700;text-underline-offset:3px}
+    .feed,.detail{padding:42px 0 80px}
+    .feed-intro{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:32px 64px;align-items:end;margin-bottom:54px}
+    .feed h1,.article-card h1{margin:0;font-family:var(--serif);font-size:clamp(46px,6vw,82px);font-weight:400;line-height:.98;letter-spacing:-.045em}
+    .feed-intro>p{margin:0;color:var(--text);font-family:var(--serif);font-size:clamp(17px,1.65vw,22px);line-height:1.28}
+    .live-status{display:flex;align-items:center;gap:8px;grid-column:2;margin-top:-12px;color:var(--muted);font-size:11px;font-weight:600;line-height:1.4}
+    .live-dot{width:6px;height:6px;flex:0 0 auto;border-radius:50%;background:#999}
+    .live-status[data-state="live"] .live-dot{background:var(--text)}
+    .live-status[data-state="error"]{color:#6d1d1d}.live-status[data-state="error"] .live-dot{background:#6d1d1d}
+    .link-list{border-top:1px solid var(--line)}
+    .empty-state{margin:0;padding:34px 0;border-bottom:1px solid var(--line);color:var(--muted);font-family:var(--serif);font-size:20px}
+    .link-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;width:100%;padding:25px 3px 27px;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;cursor:pointer}
+    .link-copy{display:grid;min-width:0}
+    .domain{margin-bottom:9px;color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.075em;text-transform:uppercase}
+    .link-title{max-width:980px;font-family:var(--serif);font-size:clamp(28px,3.4vw,47px);font-weight:400;line-height:1.04;letter-spacing:-.03em}
+    .description{max-width:760px;margin-top:10px;color:var(--muted);font-family:var(--serif);font-size:16px;line-height:1.38}
+    .card-meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:17px;color:var(--text);font-size:11px;font-weight:700;letter-spacing:.035em;text-transform:uppercase}
+    .open-label{align-self:center;color:var(--text);font-family:Arial,sans-serif;font-size:44px;font-weight:300;line-height:1;transition:transform 160ms ease}
+    .link-card:hover .open-label{transform:translateX(7px)}
+    .link-card:hover .link-title{color:var(--accent)}
+    .link-card:focus-visible{outline:2px solid var(--accent);outline-offset:5px}
+    .back-button{margin:0 0 34px;padding:0 0 5px;color:var(--accent);font-size:12px;font-weight:700;border:0;border-bottom:1px solid currentColor;background:transparent;cursor:pointer}
+    .article-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:30px;padding:0 0 38px;border-bottom:1px solid var(--line)}
+    .article-card h1{max-width:950px;font-size:clamp(42px,6vw,78px)}
+    .article-card p{max-width:760px;margin:18px 0 0;color:var(--muted);font-family:var(--serif);font-size:18px;line-height:1.42}
+    .article-button{align-self:start;padding:10px 0 5px;color:var(--accent);font-size:12px;font-weight:700;text-decoration:none;border-bottom:1px solid currentColor}
+    .article-meta{display:flex;flex-wrap:wrap;grid-column:1/-1;gap:8px 22px;margin-top:4px;padding-top:20px;border-top:1px solid var(--soft-line);font-size:11px;font-weight:700;letter-spacing:.035em;text-transform:uppercase}
+    .language-note{max-width:760px;margin:14px 0 52px;color:var(--muted);font-size:11px;line-height:1.5}
+    .conversation-list h2{margin:0;padding-bottom:16px;border-bottom:1px solid var(--line);font-family:var(--serif);font-size:clamp(30px,4vw,48px);font-weight:400;letter-spacing:-.03em}
+    .conversation{position:relative;padding:24px 2px;border-bottom:1px solid var(--soft-line)}
+    .conversation.reply{margin-left:44px;padding-left:20px;border-left:1px solid var(--line)}
+    .conversation.reply:before{content:"";position:absolute;top:38px;left:-1px;width:12px;border-top:1px solid var(--line)}
+    .conversation-author{display:flex;align-items:center;gap:10px}
+    .conversation-author div{display:grid;gap:2px}.conversation-author strong{font-size:13px}.conversation-author div span{color:var(--muted);font-size:11px}
+    .avatar{display:grid;place-items:center;width:31px;height:31px;color:var(--text);border:1px solid var(--line);border-radius:50%;font-size:9px;font-weight:700}
+    .conversation>p{max-width:780px;margin:13px 0 12px 41px;font-family:var(--serif);font-size:18px;line-height:1.45;white-space:pre-wrap}
+    .conversation-meta{margin-left:41px;font-size:11px;font-weight:700}.conversation-meta a{color:var(--accent);text-decoration:none;border-bottom:1px solid currentColor}
+    .hidden{display:none}
+    @media(max-width:760px){
+      .site-note,.feed,.detail{width:min(calc(100% - 28px),1180px)}
+      .site-note{padding-top:18px}
+      .feed,.detail{padding-top:30px}
+      .feed-intro{grid-template-columns:1fr;gap:22px;margin-bottom:38px}
+      .feed h1{font-size:clamp(42px,13vw,62px)}
+      .live-status{grid-column:1;margin-top:-10px}
+      .link-card{gap:14px;padding:21px 1px 23px}
+      .link-title{font-size:clamp(27px,8.6vw,38px)}
+      .description{font-size:15px}
+      .open-label{font-size:32px}
+      .article-card{grid-template-columns:1fr;gap:20px}
+      .article-button{justify-self:start}.article-meta{grid-column:1}
+      .conversation.reply{margin-left:20px;padding-left:13px}
+    }
+    @media(prefers-reduced-motion:reduce){.open-label{transition:none}}
   </style>
 </head>
 <body>
@@ -247,7 +310,45 @@
     document.getElementById('brand').addEventListener('click',showFeed);
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(!socket||socket.readyState>1))connect()});
   </script>
-  <script src="./app.js?v=20260902-share-links"></script>
+  <script src="./app.js?v=20260903-local-demo"></script>
+  <script>
+    if(location.protocol==='file:'&&document.getElementById('link-list').children.length===0){
+      const demoItems=[
+        {domain:'voorbeeld.nl',title:'Hoe maken we in bestaande steden meer ruimte voor wonen?',description:'Een analyse van verdichting, openbare ruimte en de keuzes die gemeenten daarbij maken.',conversations:2,messages:3,people:3,posts:[
+          {name:'Marieke de Vries',handle:'marieke.example',label:'start van gesprek',text:'Interessant dat het debat steeds over aantallen woningen gaat, en veel minder over wat voor buurten we daarmee bouwen.'},
+          {name:'Jochem',handle:'jochem.example',label:'antwoord',reply:true,text:'Precies. Vooral het stuk over voorzieningen op loopafstand verdient meer aandacht.'},
+          {name:'Stadsblik',handle:'stadsblik.example',label:'start van gesprek',text:'Dit artikel legt helder uit waarom alleen hoger bouwen geen volledig antwoord is.'}
+        ]},
+        {domain:'dekrant.example',title:'Van wie is de publieke ruimte?',description:'Over terrassen, verkeer en de plekken in de stad waar niemand iets hoeft te kopen.',conversations:2,messages:4,people:4,posts:[
+          {name:'Noor El Amrani',handle:'noor.example',label:'start van gesprek',text:'De beste zin: openbare ruimte is geen restruimte. Daar zouden veel gemeenteraden mee mogen beginnen.'},
+          {name:'Pieter',handle:'pieter.example',label:'antwoord',reply:true,text:'En ook geen verdienmodel. Mooi dat het artikel dat onderscheid zo concreet maakt.'},
+          {name:'Lot',handle:'lot.example',label:'antwoord',reply:true,text:'Ben benieuwd hoe dit buiten de grote steden speelt.'}
+        ]},
+        {domain:'tijdschrift.example',title:'Wat blijft er van nieuws over als we de afzender minder belangrijk maken?',description:'Een essay over aandacht, distributie en gesprekken die niet rond één invloedrijk account draaien.',conversations:2,messages:3,people:3,posts:[
+          {name:'Bas Smit',handle:'bas.example',label:'start van gesprek',text:'Dit raakt precies aan waarom een chronologische tijdlijn nog niet automatisch een gedeelde publieke ruimte is.'},
+          {name:'Eline',handle:'eline.example',label:'antwoord',reply:true,text:'Ja — de ordening bepaalt nog steeds enorm veel, ook zonder aanbevelingsalgoritme.'},
+          {name:'Mediaonderzoek',handle:'mediaonderzoek.example',label:'start van gesprek',text:'Niet wie spreekt, maar waar meerdere mensen onafhankelijk naar verwijzen als vertrekpunt.'}
+        ]},
+        {domain:'weekblad.example',title:'Kunnen we een rivier behandelen als een buur?',description:'Nieuwe manieren om over natuur, rechten en lokaal bestuur na te denken.',conversations:1,messages:2,people:2,posts:[
+          {name:'Sanne',handle:'sanne.example',label:'start van gesprek',text:'Mooie manier om een abstract juridisch idee ineens voorstelbaar te maken.'},
+          {name:'Wouter',handle:'wouter.example',label:'antwoord',reply:true,text:'Al blijft de vraag wie er dan namens die buur mag spreken.'}
+        ]}
+      ];
+      const demoList=document.getElementById('link-list'),demoFeed=document.getElementById('feed'),demoDetail=document.getElementById('detail');
+      document.getElementById('live-status').dataset.state='live';document.getElementById('live-text').textContent='Lokale ontwerpvoorbeelden — geen echte berichten';
+      const safe=value=>String(value).replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+      demoItems.forEach((item,index)=>{
+        const card=document.createElement('button');card.className='link-card';card.setAttribute('aria-label','Open voorbeeld '+item.title);
+        card.innerHTML='<span class="link-copy"><span class="domain">'+safe(item.domain)+'</span><strong class="link-title">'+safe(item.title)+'</strong><span class="description">'+safe(item.description)+'</span><span class="card-meta"><span>'+item.conversations+' gesprekken</span><span>'+item.messages+' berichten</span><span>'+item.people+' mensen</span></span></span><span class="open-label" aria-hidden="true">→</span>';
+        card.addEventListener('click',()=>{
+          document.getElementById('detail-domain').textContent=item.domain;document.getElementById('detail-title').textContent=item.title;document.getElementById('detail-description').textContent=item.description;document.getElementById('detail-conversations').textContent=item.conversations+' gesprekken';document.getElementById('detail-messages').textContent=item.messages+' berichten';document.getElementById('detail-people').textContent=item.people+' mensen';document.getElementById('article-button').href='#';
+          const messages=document.getElementById('conversations');messages.replaceChildren();item.posts.forEach(post=>{const article=document.createElement('article');article.className='conversation'+(post.reply?' reply':'');article.innerHTML='<div class="conversation-author"><span class="avatar">'+safe(post.name.slice(0,2).toUpperCase())+'</span><div><strong>'+safe(post.name)+'</strong><span>@'+safe(post.handle)+' · '+safe(post.label)+' · zojuist</span></div></div><p>'+safe(post.text)+'</p><div class="conversation-meta"><a href="#" onclick="return false">Voorbeeld van oorspronkelijk bericht ↗</a></div>';messages.append(article)});
+          demoFeed.classList.add('hidden');demoDetail.classList.remove('hidden');scrollTo(0,0);
+        });demoList.append(card);
+      });
+      document.getElementById('back').addEventListener('click',()=>{demoDetail.classList.add('hidden');demoFeed.classList.remove('hidden');scrollTo(0,0)});
+    }
+  </script>
   <!-- Cloudflare Web Analytics -->
   <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"768266623995468c880b0f6fd0d970f1"}'></script>
   <!-- End Cloudflare Web Analytics -->
