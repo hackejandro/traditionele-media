@@ -64,24 +64,46 @@ function candidateFrom(event) {
 
 async function json(url) {
   let lastStatus = 0;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const response = await fetch(url);
-    if (response.ok) return response.json();
-    lastStatus = response.status;
-    await response.body?.cancel();
-    if (response.status !== 429 && response.status < 500) break;
-    await new Promise((resolve) => setTimeout(resolve, 750 * (2 ** attempt)));
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) return response.json();
+      lastStatus = response.status;
+      await response.body?.cancel();
+      if (response.status !== 429 && response.status < 500) break;
+      const retryAfter = Number(response.headers.get('retry-after')) * 1000;
+      const delay = Number.isFinite(retryAfter) && retryAfter > 0
+        ? retryAfter
+        : 500 * (2 ** attempt) + Math.floor(Math.random() * 500);
+      await new Promise((resolve) => setTimeout(resolve, Math.min(delay, 12_000)));
+    } catch (error) {
+      lastStatus = error?.cause?.code || error?.name || 'network';
+      await new Promise((resolve) => setTimeout(resolve, Math.min(500 * (2 ** attempt), 12_000)));
+    }
   }
   throw new Error(`${lastStatus} ${url}`);
 }
 
 async function getPosts(uris) {
   const result = new Map();
-  for (let offset = 0; offset < uris.length; offset += 25) {
+  async function fetchBatch(batch) {
     const url = new URL(`${API}/app.bsky.feed.getPosts`);
-    for (const uri of uris.slice(offset, offset + 25)) url.searchParams.append('uris', uri);
-    const data = await json(url);
-    for (const post of data.posts || []) result.set(post.uri, post);
+    for (const uri of batch) url.searchParams.append('uris', uri);
+    try {
+      const data = await json(url);
+      for (const post of data.posts || []) result.set(post.uri, post);
+    } catch (error) {
+      if (batch.length > 1) {
+        const middle = Math.ceil(batch.length / 2);
+        await fetchBatch(batch.slice(0, middle));
+        await fetchBatch(batch.slice(middle));
+      } else {
+        console.warn(JSON.stringify({ event: 'post_lookup_skipped', uri: batch[0], reason: String(error.message || error) }));
+      }
+    }
+  }
+  for (let offset = 0; offset < uris.length; offset += 10) {
+    await fetchBatch(uris.slice(offset, offset + 10));
   }
   return result;
 }
