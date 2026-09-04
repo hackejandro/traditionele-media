@@ -3,7 +3,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 const FEED_PATH = 'docs/feed.json';
 const BOT_STATE_PATH = 'work/bot-state.json';
 const SITE = 'https://traditionele.media/';
-const MAX_POSTS_PER_DAY = 8;
+const MAX_POSTS_PER_DAY = 24;
+const MIN_POST_INTERVAL = 60 * 60 * 1000;
 const MAX_POST_LENGTH = 300;
 const ACTIVE_WINDOW = 24 * 60 * 60 * 1000;
 const MODE = process.env.BOT_MODE || 'dry-run';
@@ -86,6 +87,8 @@ const now = Date.now();
 const today = amsterdamDay(now);
 const postedToday = state.posts.filter((post) => amsterdamDay(post.postedAt) === today).length;
 const postedUrls = new Set(state.posts.map((post) => post.url));
+const lastPostedAt = Math.max(0, ...state.posts.map((post) => Number(post.postedAt) || 0));
+const nextPostAt = lastPostedAt + MIN_POST_INTERVAL;
 
 const eligible = feed.items
   .map((item) => ({ item, score: metrics(item) }))
@@ -96,8 +99,15 @@ const eligible = feed.items
     !postedUrls.has(item.url))
   .sort((a, b) => b.item.updatedAt - a.item.updatedAt || b.score.conversations - a.score.conversations || b.score.people - a.score.people);
 
-if (postedToday >= MAX_POSTS_PER_DAY || eligible.length === 0) {
-  console.log(JSON.stringify({ event: MODE === 'live' ? 'bot_skipped' : 'bot_dry_run', wouldPost: false, postedToday, dailyLimit: MAX_POSTS_PER_DAY }));
+if (postedToday >= MAX_POSTS_PER_DAY || now < nextPostAt || eligible.length === 0) {
+  console.log(JSON.stringify({
+    event: MODE === 'live' ? 'bot_skipped' : 'bot_dry_run',
+    wouldPost: false,
+    reason: postedToday >= MAX_POSTS_PER_DAY ? 'daily_limit' : now < nextPostAt ? 'hourly_interval' : 'no_eligible_item',
+    postedToday,
+    dailyLimit: MAX_POSTS_PER_DAY,
+    ...(now < nextPostAt ? { nextPostAt: new Date(nextPostAt).toISOString() } : {}),
+  }));
   process.exit(0);
 }
 
