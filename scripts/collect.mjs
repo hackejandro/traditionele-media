@@ -234,12 +234,21 @@ async function buildFeed(state) {
   const views = await getPosts(state.candidates.map((post) => post.uri));
   const groups = new Map();
   for (const post of state.candidates) for (const link of post.links) {
-    const group = groups.get(link.url) || { link: { ...link }, posts: [], score: 0 };
+    const group = groups.get(link.url) || { link: { ...link }, postsByDid: new Map(), posts: [], score: 0 };
     if (link.title) group.link.title = link.title;
     if (link.description) group.link.description = link.description;
-    group.posts.push(post);
-    group.score += 1000 + (views.get(post.uri)?.replyCount || 0);
+    const previous = group.postsByDid.get(post.did);
+    const replyCount = views.get(post.uri)?.replyCount || 0;
+    const previousReplyCount = views.get(previous?.uri)?.replyCount || 0;
+    const isNewer = new Date(post.createdAt).getTime() > new Date(previous?.createdAt || 0).getTime();
+    if (!previous || replyCount > previousReplyCount || (replyCount === previousReplyCount && isNewer)) {
+      group.postsByDid.set(post.did, post);
+    }
     groups.set(link.url, group);
+  }
+  for (const group of groups.values()) {
+    group.posts = [...group.postsByDid.values()];
+    group.score = group.posts.reduce((score, post) => score + 1000 + (views.get(post.uri)?.replyCount || 0), 0);
   }
   const now = Date.now();
   const existing = new Map((state.featured || []).filter((row) => row.expiresAt > now).map((row) => [row.url, row]));
@@ -253,14 +262,15 @@ async function buildFeed(state) {
   for (const url of ordered) {
     if (items.length >= MAX_ITEMS) break;
     const group = groups.get(url);
+    if (group.posts.length < 2) continue;
     const hydrated = [];
     for (let offset = 0; offset < group.posts.length; offset += 6) {
       const values = await Promise.all(group.posts.slice(offset, offset + 6).map((post) =>
         hydrate(post, views.get(post.uri)).catch(() => null)));
       hydrated.push(...values.filter(Boolean));
     }
-    const people = new Set(hydrated.flatMap((post) => [post.did, ...post.replies.map((reply) => reply.did)]));
-    if (people.size < 2) continue;
+    const starters = new Set(hydrated.map((post) => post.did));
+    if (starters.size < 2) continue;
     const parsed = new URL(url);
     const featured = existing.get(url) || { url, admittedAt: now, expiresAt: now + DAY };
     items.push({
