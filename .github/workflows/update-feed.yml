@@ -42,7 +42,7 @@ jobs:
       - name: Collect and build feed
         run: node scripts/collect.mjs
 
-      - name: Publish qualifying conversation
+      - name: Update and publish Bluesky posts
         env:
           BOT_MODE: live
           EUROSKY_APP_PASSWORD: ${{ secrets.EUROSKY_APP_PASSWORD }}

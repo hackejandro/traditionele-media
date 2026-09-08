@@ -20,6 +20,8 @@ De publieke versie wordt via GitHub Pages gepubliceerd op <https://traditionele.
 
 De gratis aggregatielaag draait als geplande GitHub Action. Iedere vijftien minuten haalt een Node-proces de Jetstream-achterstand vanaf een opgeslagen cursor op en publiceert het één nieuwe GitHub Pages-versie met een gedeelde `feed.json`. Als een startbericht geen taalveld heeft, kan een expliciet Nederlandstalig antwoord het bovenliggende linkgesprek alsnog toelaten; er wordt nog steeds geen taal automatisch herkend. Bluesky-redirects en directe artikel-URL's worden samengevoegd. Een link wordt alleen opgenomen wanneer minstens twee verschillende accounts erover posten of reageren. Daarna blijft de kaart 24 uur zichtbaar en worden nieuwe gesprekken en antwoorden toegevoegd. De homepage toont maximaal twintig linkkaarten, gesorteerd op de recentste startpost of reactie; er is geen aparte limiet op het aantal berichten binnen die kaarten. Websitebezoeken lezen uitsluitend het statische JSON-bestand en voeren geen verzamelwerk uit.
 
+De Bluesky-bot publiceert daarnaast om 07:00 uur een top drie van de vorige kalenderdag en om 20:00 uur een top drie van de lopende dag, beide in Amsterdamse tijd. Het aantal unieke gesprekken is het aantal verschillende accounts dat de link die dag in een startbericht deelde. De titels in deze overzichten linken naar het bijbehorende gesprek op traditionele.media.
+
 ## MVP-regels
 
 Het eerste experiment verwerkt uitsluitend bestaande `app.bsky.feed.post`-records.
