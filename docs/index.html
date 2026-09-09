@@ -19,7 +19,11 @@
     .site-note a{color:var(--accent);font-weight:700;text-underline-offset:3px}
     .feed,.detail{padding:42px 0 80px}
     .feed-intro{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:32px 64px;align-items:end;margin-bottom:54px}
+    .feed-heading{display:grid;gap:18px;justify-items:start}
     .feed h1,.article-card h1{margin:0;font-family:var(--serif);font-size:clamp(46px,6vw,82px);font-weight:400;line-height:.98;letter-spacing:-.045em}
+    .bluesky-link{color:var(--accent);font-size:12px;font-weight:700;text-decoration:none;border-bottom:1px solid currentColor;padding-bottom:3px}
+    .bluesky-link:hover{color:var(--text)}
+    .bluesky-link:focus-visible{outline:2px solid var(--accent);outline-offset:5px}
     .feed-intro>p{margin:0;color:var(--text);font-family:var(--serif);font-size:clamp(17px,1.65vw,22px);line-height:1.28}
     .live-status{display:flex;align-items:center;gap:8px;grid-column:2;margin-top:-12px;color:var(--muted);font-size:11px;font-weight:600;line-height:1.4}
     .live-dot{width:6px;height:6px;flex:0 0 auto;border-radius:50%;background:#999}
@@ -77,7 +81,10 @@
     <p class="site-note">traditionele.media is een website voor experimenten met (nieuws)media, gemaakt door <a href="https://www.linkedin.com/in/alejandro-tauber-4b496757/" target="_blank" rel="noopener noreferrer">Alejandro Tauber</a>.</p>
     <section class="feed" id="feed" aria-labelledby="feed-title">
       <div class="feed-intro">
-        <h1 id="feed-title">Wat als we sociale media ordenen rond wat wordt besproken?</h1>
+        <div class="feed-heading">
+          <h1 id="feed-title">Wat als we sociale media ordenen rond wat wordt besproken?</h1>
+          <a class="bluesky-link" href="https://bsky.app/profile/traditionelemedia.eurosky.social" target="_blank" rel="noopener noreferrer">Volg updates op Bluesky ↗</a>
+        </div>
         <p>Links met actieve Nederlandstalige gespreksthreads van Bluesky/Mu/W/etc, gerangschikt op het aantal gesprekken, van de afgelopen 24 uur. Doe er je voordeel mee.</p>
         <div class="live-status" id="live-status" data-state="loading" role="status" aria-live="polite"><span class="live-dot" aria-hidden="true"></span><span id="live-text">Live berichten ophalen…</span></div>
       </div>
