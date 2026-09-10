@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'traditionele.media',
+  title: 'Traditionele Media',
   description: 'ATProto-experimenten die sociale media anders organiseren.',
 };
 
