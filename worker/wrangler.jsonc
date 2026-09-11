@@ -1,25 +1,47 @@
 {
-  "$schema": "../node_modules/wrangler/config-schema.json",
-  "name": "commonplace-stream",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-08-31",
-  "compatibility_flags": ["nodejs_compat"],
-  "kv_namespaces": [
-    { "binding": "COMMONPLACE" }
-  ],
-  "durable_objects": {
-    "bindings": [
-      { "name": "COLLECTOR", "class_name": "CommonplaceCollector" }
-    ]
-  },
-  "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["CommonplaceCollector"] }
-  ],
-  "triggers": {
-    "crons": ["*/15 * * * *"]
-  },
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 0.01
-  }
+	"$schema": "../node_modules/wrangler/config-schema.json",
+	"name": "commonplace-stream",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-08-31",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"kv_namespaces": [
+		{
+			"binding": "COMMONPLACE"
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "COLLECTOR",
+				"class_name": "CommonplaceCollector"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"CommonplaceCollector"
+			]
+		}
+	],
+	"triggers": {
+		"crons": [
+			"*/15 * * * *"
+		]
+	},
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 0.01
+	},
+	"d1_databases": [
+		{
+			"binding": "HISTORY_DB",
+			"database_name": "traditionele-media-history",
+			"database_id": "4451dff7-6438-493e-95c2-a4bc9066b912",
+			"migrations_dir": "migrations"
+		}
+	]
 }

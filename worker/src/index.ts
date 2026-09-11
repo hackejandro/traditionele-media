@@ -13,6 +13,7 @@ const COLLECTION_WINDOW = 50 * 1000;
 const MAX_CANDIDATES = 300;
 const MAX_ITEMS = 20;
 const MAX_THREAD_HYDRATIONS = 20;
+const PUBLIC_FEED = "https://traditionele.media/feed.json";
 type WorkerEnv = Env & { GITHUB_TRIGGER_TOKEN: string };
 
 type Link = { url: string; title: string; description: string };
@@ -21,6 +22,22 @@ type Reply = { uri: string; did: string; rkey: string; text: string; createdAt: 
 type FeedPost = Candidate & { replies: Reply[]; handle?: string; displayName?: string };
 type FeedItem = { url: string; domain: string; title: string; description: string; updatedAt: number; posts: FeedPost[] };
 type Snapshot = { generatedAt: string; expiresAfterHours: 24; items: FeedItem[] };
+type HistoricalFeedItem = FeedItem & { id?: string };
+type HistoricalFeed = { generatedAt?: string | null; items?: HistoricalFeedItem[] };
+type DailySnapshot = {
+  snapshotDate: string;
+  linkId: string;
+  url: string;
+  domain: string;
+  title: string;
+  description: string;
+  conversations: number;
+  messages: number;
+  people: number;
+  maxThreadMessages: number;
+  firstSeenAt: number;
+  lastActivityAt: number;
+};
 type CandidateRow = {
   uri: string; did: string; rkey: string; text: string; created_at: number;
   url: string; title: string; description: string;
@@ -51,6 +68,114 @@ type CollectedBatch = {
   cursor: number;
   lastEventAt: string | null;
 };
+
+function amsterdamDay(value: string | number): string {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Amsterdam",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+}
+
+function historicalRows(feed: HistoricalFeed): DailySnapshot[] {
+  const rows: DailySnapshot[] = [];
+  for (const item of feed.items ?? []) {
+    const linkId = item.id;
+    if (!linkId || !item.url || !Array.isArray(item.posts)) continue;
+    const days = new Map<string, FeedPost[]>();
+    for (const post of item.posts) {
+      if (!post.did || !post.createdAt) continue;
+      const day = amsterdamDay(post.createdAt);
+      const posts = days.get(day) ?? [];
+      posts.push(post);
+      days.set(day, posts);
+    }
+    for (const [snapshotDate, posts] of days) {
+      const replies = posts.flatMap((post) => post.replies ?? []);
+      const activityTimes = [...posts, ...replies]
+        .map((post) => new Date(post.createdAt).getTime())
+        .filter(Number.isFinite);
+      if (!activityTimes.length) continue;
+      rows.push({
+        snapshotDate,
+        linkId,
+        url: item.url,
+        domain: item.domain,
+        title: item.title,
+        description: item.description,
+        conversations: new Set(posts.map((post) => post.did)).size,
+        messages: posts.length + replies.length,
+        people: new Set([...posts, ...replies].map((post) => post.did)).size,
+        maxThreadMessages: Math.max(...posts.map((post) => 1 + (post.replies?.length ?? 0))),
+        firstSeenAt: Math.min(...posts.map((post) => new Date(post.createdAt).getTime()).filter(Number.isFinite)),
+        lastActivityAt: Math.max(...activityTimes),
+      });
+    }
+  }
+  return rows;
+}
+
+async function archiveDailyHistory(db: D1Database): Promise<void> {
+  const response = await fetch(PUBLIC_FEED, {
+    headers: { "Accept": "application/json", "User-Agent": "traditionele-media-history" },
+  });
+  if (!response.ok) throw new Error(`Feed fetch failed with ${response.status}`);
+  const value: unknown = await response.json();
+  const feed = value && typeof value === "object" ? value as HistoricalFeed : {};
+  const rows = historicalRows(feed);
+  const capturedAt = Date.now();
+  const statement = db.prepare(
+    `INSERT INTO daily_link_snapshots(
+       snapshot_date, link_id, normalized_url, domain, title, description,
+       conversation_count, message_count, unique_people_count, max_thread_messages,
+       first_seen_at, last_activity_at, captured_at
+     ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(snapshot_date, link_id) DO UPDATE SET
+       normalized_url = excluded.normalized_url,
+       domain = excluded.domain,
+       title = CASE WHEN excluded.title != '' THEN excluded.title ELSE daily_link_snapshots.title END,
+       description = CASE WHEN excluded.description != '' THEN excluded.description ELSE daily_link_snapshots.description END,
+       conversation_count = MAX(daily_link_snapshots.conversation_count, excluded.conversation_count),
+       message_count = MAX(daily_link_snapshots.message_count, excluded.message_count),
+       unique_people_count = MAX(daily_link_snapshots.unique_people_count, excluded.unique_people_count),
+       max_thread_messages = MAX(daily_link_snapshots.max_thread_messages, excluded.max_thread_messages),
+       first_seen_at = MIN(daily_link_snapshots.first_seen_at, excluded.first_seen_at),
+       last_activity_at = MAX(daily_link_snapshots.last_activity_at, excluded.last_activity_at),
+       captured_at = excluded.captured_at`,
+  );
+  for (let offset = 0; offset < rows.length; offset += 50) {
+    await db.batch(rows.slice(offset, offset + 50).map((row) => statement.bind(
+      row.snapshotDate,
+      row.linkId,
+      row.url,
+      row.domain,
+      row.title,
+      row.description,
+      row.conversations,
+      row.messages,
+      row.people,
+      row.maxThreadMessages,
+      row.firstSeenAt,
+      row.lastActivityAt,
+      capturedAt,
+    )));
+  }
+  await db.prepare(
+    `INSERT INTO history_runs(snapshot_date, last_capture_at, stored_links, source_generated_at)
+     VALUES(?, ?, ?, ?)
+     ON CONFLICT(snapshot_date) DO UPDATE SET
+       last_capture_at = excluded.last_capture_at,
+       stored_links = MAX(history_runs.stored_links, excluded.stored_links),
+       source_generated_at = excluded.source_generated_at`,
+  ).bind(
+    amsterdamDay(capturedAt),
+    capturedAt,
+    rows.length,
+    typeof feed.generatedAt === "string" ? feed.generatedAt : null,
+  ).run();
+  console.log(JSON.stringify({ event: "daily_history_archived", rows: rows.length, capturedAt }));
+}
 
 function responseHeaders(): HeadersInit {
   return { "Access-Control-Allow-Origin": ORIGIN, "Cache-Control": "public, max-age=60, s-maxage=300" };
@@ -616,6 +741,14 @@ export default {
     return Response.json(snapshot, { headers: responseHeaders() });
   },
   async scheduled(_controller, env): Promise<void> {
+    try {
+      await archiveDailyHistory(env.HISTORY_DB);
+    } catch (error) {
+      console.error(JSON.stringify({
+        event: "daily_history_archive_failed",
+        message: error instanceof Error ? error.message : "unknown",
+      }));
+    }
     const response = await fetch(
       "https://api.github.com/repos/hackejandro/traditionele-media/actions/workflows/update-feed.yml/dispatches",
       {
