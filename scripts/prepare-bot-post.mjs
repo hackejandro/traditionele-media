@@ -229,11 +229,13 @@ if (postedToday >= MAX_POSTS_PER_DAY || now < nextPostAt || eligible.length === 
 }
 
 const { item, score } = eligible[0];
-const conversationLabel = score.conversations === 1 ? 'gesprek' : 'gesprekken';
 const peopleLabel = score.people === 1 ? 'persoon' : 'mensen';
 const url = `${SITE}?gesprek=${item.id}`;
-const prefix = 'Nieuw gesprek op traditionele.media\n\n';
-const suffix = `\n\n${score.conversations} ${conversationLabel} · ${score.messages} berichten · ${score.people} ${peopleLabel}\n\nBekijk wat verschillende mensen erover zeggen:\n${url}`;
+const prefix = 'Veelbesproken op Nederlandstalig Bluesky:\n\n';
+const conversationSummary = score.conversations === 1
+  ? '1 verschillend account begon hierover een afzonderlijk gesprek'
+  : `${score.conversations} verschillende accounts begonnen hierover afzonderlijk een gesprek`;
+const suffix = `\n\n${conversationSummary} · ${score.messages} berichten van ${score.people} ${peopleLabel}\n\nBekijk de gesprekken:\n${url}`;
 const title = shorten(item.title || item.domain, MAX_POST_LENGTH - [...prefix, ...suffix].length);
 const text = `${prefix}${title}${suffix}`;
 
