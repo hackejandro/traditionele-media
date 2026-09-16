@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tussentijds weekoverzicht van de meest besproken links op Nederlandstalig Bluesky.">
+  <title>Weekoverzicht — Traditionele Media</title>
+  <style>
+    :root {
+      --paper: #f5f2e8;
+      --ink: #11110f;
+      --green: #246243;
+      --muted: #67675f;
+      --serif: "Iowan Old Style", "Baskerville", "Times New Roman", serif;
+      --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #dedbd2;
+      color: var(--ink);
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 32px;
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .poster {
+      position: relative;
+      width: min(1200px, calc(100vw - 64px));
+      aspect-ratio: 4 / 5;
+      overflow: hidden;
+      padding: 60px 66px 48px;
+      background: var(--paper);
+      box-shadow: 0 18px 70px rgb(0 0 0 / 10%);
+    }
+
+    .poster::after {
+      content: "";
+      position: absolute;
+      z-index: 0;
+      right: -150px;
+      bottom: 228px;
+      width: 500px;
+      height: 500px;
+      border: 82px solid var(--green);
+      border-radius: 50%;
+      opacity: .09;
+    }
+
+    header, main, footer { position: relative; z-index: 1; }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 32px;
+      align-items: start;
+      padding-bottom: 32px;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    .kicker {
+      margin: 0 0 15px;
+      color: var(--green);
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 820px;
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 77px;
+      font-weight: 400;
+      line-height: .94;
+      letter-spacing: -.052em;
+    }
+
+    .date {
+      max-width: 140px;
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.4;
+      text-align: right;
+    }
+
+    .ranking { counter-reset: stories; }
+
+    .story {
+      counter-increment: stories;
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr) 190px;
+      gap: 24px;
+      align-items: center;
+      min-height: 174px;
+      padding: 22px 0;
+      border-bottom: 1.5px solid var(--ink);
+    }
+
+    .story::before {
+      content: counter(stories, decimal-leading-zero);
+      align-self: start;
+      padding-top: 6px;
+      color: var(--green);
+      font-family: var(--serif);
+      font-size: 37px;
+      line-height: 1;
+    }
+
+    .source {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 35px;
+      font-weight: 400;
+      line-height: 1.04;
+      letter-spacing: -.028em;
+    }
+
+    .score {
+      justify-self: end;
+      width: 176px;
+      padding-left: 23px;
+      border-left: 1px solid #aaa79e;
+    }
+
+    .score strong {
+      display: block;
+      font-family: var(--serif);
+      font-size: 56px;
+      font-weight: 400;
+      line-height: .85;
+      letter-spacing: -.04em;
+    }
+
+    .score span {
+      display: block;
+      margin-top: 9px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .score small {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .signals {
+      display: grid;
+      grid-template-columns: 1.16fr .84fr;
+      gap: 42px;
+      padding: 31px 0 28px;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    .section-label {
+      margin: 0 0 19px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .words {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 12px;
+      align-items: baseline;
+      max-width: 590px;
+      font-family: var(--serif);
+      line-height: 1;
+    }
+
+    .words span:nth-child(1) { font-size: 44px; }
+    .words span:nth-child(2) { font-size: 36px; color: var(--green); }
+    .words span:nth-child(3) { font-size: 31px; }
+    .words span:nth-child(4) { font-size: 28px; color: var(--green); }
+    .words span:nth-child(5) { font-size: 24px; }
+    .words span:nth-child(6) { font-size: 21px; }
+
+    .insight {
+      padding-left: 31px;
+      border-left: 1px solid #aaa79e;
+    }
+
+    .insight strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--green);
+      font-family: var(--serif);
+      font-size: 70px;
+      font-weight: 400;
+      line-height: .8;
+      letter-spacing: -.055em;
+    }
+
+    .insight p {
+      max-width: 330px;
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 21px;
+      line-height: 1.18;
+    }
+
+    footer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 30px;
+      align-items: end;
+      padding-top: 28px;
+    }
+
+    .brand {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 31px;
+      line-height: 1;
+      letter-spacing: -.025em;
+    }
+
+    .brand i {
+      display: inline-block;
+      padding: 0 7px;
+      color: var(--green);
+      font-style: normal;
+    }
+
+    .explainer {
+      max-width: 460px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.42;
+      text-align: right;
+    }
+
+    .status {
+      position: absolute;
+      z-index: 3;
+      top: 0;
+      right: 0;
+      padding: 9px 18px 10px;
+      color: var(--paper);
+      background: var(--green);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 850px) {
+      body { padding: 0; }
+      .poster {
+        width: 100vw;
+        min-height: 100vh;
+        aspect-ratio: auto;
+        padding: 42px 28px 34px;
+        box-shadow: none;
+      }
+      header { grid-template-columns: 1fr; gap: 12px; }
+      h1 { font-size: clamp(52px, 15vw, 76px); }
+      .date { max-width: none; text-align: left; }
+      .story { grid-template-columns: 46px 1fr; gap: 14px; }
+      .score { grid-column: 2; justify-self: start; width: 100%; padding: 13px 0 0; border: 0; border-top: 1px solid #aaa79e; }
+      .score strong, .score span, .score small { display: inline; margin-right: 6px; }
+      .score strong { font-size: 37px; }
+      .signals { grid-template-columns: 1fr; }
+      .insight { padding: 25px 0 0; border-left: 0; border-top: 1px solid #aaa79e; }
+      footer { grid-template-columns: 1fr; align-items: start; }
+      .explainer { text-align: left; }
+    }
+
+    @media print {
+      @page { size: 1200px 1500px; margin: 0; }
+      body { padding: 0; background: var(--paper); }
+      .poster { width: 1200px; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <article class="poster" aria-labelledby="poster-title">
+    <span class="status">Tussenstand · echte data</span>
+    <header>
+      <div>
+        <p class="kicker">Het weekoverzicht</p>
+        <h1 id="poster-title">Wat Nederland op Bluesky besprak.</h1>
+      </div>
+      <p class="date">10 — 16<br>september<br>2026</p>
+    </header>
+
+    <main>
+      <section class="ranking" aria-label="De drie meest besproken verhalen">
+        <article class="story">
+          <div>
+            <span class="source">Polderprikker</span>
+            <h2>Polderprikker — dagelijks Nederlands topospel</h2>
+          </div>
+          <div class="score">
+            <strong>117</strong>
+            <span>afzonderlijke gesprekken</span>
+            <small>224 berichten · grootste draad: 21</small>
+          </div>
+        </article>
+
+        <article class="story">
+          <div>
+            <span class="source">MapTap</span>
+            <h2>MapTap Daily Geography Game</h2>
+          </div>
+          <div class="score">
+            <strong>54</strong>
+            <span>afzonderlijke gesprekken</span>
+            <small>78 berichten · grootste draad: 4</small>
+          </div>
+        </article>
+
+        <article class="story">
+          <div>
+            <span class="source">Partij voor de Dieren</span>
+            <h2>Petitie: Rob Jetten, voer je eigen goede klimaatplannen uit!</h2>
+          </div>
+          <div class="score">
+            <strong>48</strong>
+            <span>afzonderlijke gesprekken</span>
+            <small>118 berichten · grootste draad: 30</small>
+          </div>
+        </article>
+      </section>
+
+      <section class="signals">
+        <div>
+          <p class="section-label">Woorden van de week</p>
+          <div class="words" aria-label="Veelgebruikte woorden in titels">
+            <span>Jetten</span><span>minister</span><span>klimaatmars</span>
+            <span>kabinet</span><span>spoor</span><span>Trump</span>
+          </div>
+        </div>
+        <div class="insight">
+          <p class="section-label">Opvallend</p>
+          <strong>171</strong>
+          <p>afzonderlijke gesprekken gingen over de twee dagelijkse kaartspellen bovenaan.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p class="brand">traditionele<i>✳</i>media</p>
+      <p class="explainer">116 links gevonden in zeven meetdagen. Gerangschikt op het dagelijkse aantal afzonderlijke accounts dat er een gesprek over begon, opgeteld over de periode.</p>
+    </footer>
+  </article>
+</body>
+</html>
