@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Tussentijds weekoverzicht van de meest besproken links op Nederlandstalig Bluesky.">
+  <meta name="description" content="Weekoverzicht van de meest besproken links op Nederlandstalig Bluesky.">
   <title>Weekoverzicht — Traditionele Media</title>
   <style>
     :root {
@@ -37,22 +37,9 @@
       width: min(1200px, calc(100vw - 64px));
       aspect-ratio: 4 / 5;
       overflow: hidden;
-      padding: 60px 66px 48px;
+      padding: 52px 66px 42px;
       background: var(--paper);
       box-shadow: 0 18px 70px rgb(0 0 0 / 10%);
-    }
-
-    .poster::after {
-      content: "";
-      position: absolute;
-      z-index: 0;
-      right: -150px;
-      bottom: 228px;
-      width: 500px;
-      height: 500px;
-      border: 82px solid var(--green);
-      border-radius: 50%;
-      opacity: .09;
     }
 
     header, main, footer { position: relative; z-index: 1; }
@@ -62,7 +49,7 @@
       grid-template-columns: 1fr auto;
       gap: 32px;
       align-items: start;
-      padding-bottom: 32px;
+      padding-bottom: 26px;
       border-bottom: 2px solid var(--ink);
     }
 
@@ -79,7 +66,7 @@
       max-width: 820px;
       margin: 0;
       font-family: var(--serif);
-      font-size: 77px;
+      font-size: 68px;
       font-weight: 400;
       line-height: .94;
       letter-spacing: -.052em;
@@ -100,11 +87,11 @@
     .story {
       counter-increment: stories;
       display: grid;
-      grid-template-columns: 64px minmax(0, 1fr) 190px;
+      grid-template-columns: 58px minmax(0, 1fr) 190px;
       gap: 24px;
       align-items: center;
-      min-height: 174px;
-      padding: 22px 0;
+      min-height: 125px;
+      padding: 16px 0;
       border-bottom: 1.5px solid var(--ink);
     }
 
@@ -114,7 +101,7 @@
       padding-top: 6px;
       color: var(--green);
       font-family: var(--serif);
-      font-size: 37px;
+      font-size: 32px;
       line-height: 1;
     }
 
@@ -131,7 +118,7 @@
     h2 {
       margin: 0;
       font-family: var(--serif);
-      font-size: 35px;
+      font-size: 29px;
       font-weight: 400;
       line-height: 1.04;
       letter-spacing: -.028em;
@@ -147,7 +134,7 @@
     .score strong {
       display: block;
       font-family: var(--serif);
-      font-size: 56px;
+      font-size: 48px;
       font-weight: 400;
       line-height: .85;
       letter-spacing: -.04em;
@@ -170,10 +157,7 @@
     }
 
     .signals {
-      display: grid;
-      grid-template-columns: 1.16fr .84fr;
-      gap: 42px;
-      padding: 31px 0 28px;
+      padding: 26px 0 22px;
       border-bottom: 2px solid var(--ink);
     }
 
@@ -186,36 +170,15 @@
       text-transform: uppercase;
     }
 
-    .words {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px 12px;
-      align-items: baseline;
-      max-width: 590px;
-      font-family: var(--serif);
-      line-height: 1;
-    }
-
-    .words span:nth-child(1) { font-size: 44px; }
-    .words span:nth-child(2) { font-size: 36px; color: var(--green); }
-    .words span:nth-child(3) { font-size: 31px; }
-    .words span:nth-child(4) { font-size: 28px; color: var(--green); }
-    .words span:nth-child(5) { font-size: 24px; }
-    .words span:nth-child(6) { font-size: 21px; }
-
-    .daily {
-      padding-left: 31px;
-      border-left: 1px solid #aaa79e;
-    }
-
     .daily-chart {
       display: grid;
-      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px 34px;
     }
 
     .day {
       display: grid;
-      grid-template-columns: 27px minmax(0, 1fr) 34px;
+      grid-template-columns: 68px minmax(0, 1fr) 38px;
       gap: 9px;
       align-items: center;
       font-size: 12px;
@@ -223,7 +186,7 @@
     }
 
     .day-bar {
-      height: 10px;
+      height: 11px;
       overflow: hidden;
       background: #dad7cd;
     }
@@ -240,12 +203,14 @@
       text-align: right;
     }
 
-    .daily-note {
-      margin: 0;
-      padding-top: 10px;
+    .measurement {
+      max-width: 920px;
+      margin: 17px 0 0;
+      padding-top: 14px;
+      border-top: 1px solid #aaa79e;
       color: var(--muted);
-      font-size: 11px;
-      line-height: 1.3;
+      font-size: 13px;
+      line-height: 1.42;
     }
 
     footer {
@@ -264,13 +229,6 @@
       letter-spacing: -.025em;
     }
 
-    .brand i {
-      display: inline-block;
-      padding: 0 7px;
-      color: var(--green);
-      font-style: normal;
-    }
-
     .explainer {
       max-width: 460px;
       margin: 0;
@@ -278,20 +236,6 @@
       font-size: 13px;
       line-height: 1.42;
       text-align: right;
-    }
-
-    .status {
-      position: absolute;
-      z-index: 3;
-      top: 0;
-      right: 0;
-      padding: 9px 18px 10px;
-      color: var(--paper);
-      background: var(--green);
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: .11em;
-      text-transform: uppercase;
     }
 
     @media (max-width: 850px) {
@@ -310,8 +254,7 @@
       .score { grid-column: 2; justify-self: start; width: 100%; padding: 13px 0 0; border: 0; border-top: 1px solid #aaa79e; }
       .score strong, .score span, .score small { display: inline; margin-right: 6px; }
       .score strong { font-size: 37px; }
-      .signals { grid-template-columns: 1fr; }
-      .daily { padding: 25px 0 0; border-left: 0; border-top: 1px solid #aaa79e; }
+      .daily-chart { grid-template-columns: 1fr; }
       footer { grid-template-columns: 1fr; align-items: start; }
       .explainer { text-align: left; }
     }
@@ -325,17 +268,16 @@
 </head>
 <body>
   <article class="poster" aria-labelledby="poster-title">
-    <span class="status">Tussenstand · echte data</span>
     <header>
       <div>
         <p class="kicker">Het weekoverzicht</p>
         <h1 id="poster-title">Wat Nederland op Bluesky besprak.</h1>
       </div>
-      <p class="date">10 — 16<br>september<br>2026</p>
+      <p class="date">10 — 17<br>september<br>2026</p>
     </header>
 
     <main>
-      <section class="ranking" aria-label="De drie meest besproken verhalen">
+      <section class="ranking" aria-label="De vijf meest besproken verhalen">
         <article class="story">
           <div>
             <span class="source">Partij voor de Dieren</span>
@@ -371,35 +313,53 @@
             <small>52 berichten · grootste draad: 6</small>
           </div>
         </article>
+
+        <article class="story">
+          <div>
+            <span class="source">Amnesty International</span>
+            <h2>Chinese activist opgepakt in Tibet</h2>
+          </div>
+          <div class="score">
+            <strong>30</strong>
+            <span>afzonderlijke gesprekken</span>
+            <small>34 berichten · grootste draad: 3</small>
+          </div>
+        </article>
+
+        <article class="story">
+          <div>
+            <span class="source">NOS</span>
+            <h2>Boerenactivisten mogelijk verantwoordelijk voor sabotage op het spoor</h2>
+          </div>
+          <div class="score">
+            <strong>28</strong>
+            <span>afzonderlijke gesprekken</span>
+            <small>146 berichten · grootste draad: 71</small>
+          </div>
+        </article>
       </section>
 
       <section class="signals">
-        <div>
-          <p class="section-label">Woorden van de week</p>
-          <div class="words" aria-label="Veelgebruikte woorden in titels">
-            <span>Jetten</span><span>minister</span><span>klimaatmars</span>
-            <span>kabinet</span><span>spoor</span><span>Trump</span>
-          </div>
-        </div>
         <div class="daily">
           <p class="section-label">Gesprekken per dag</p>
           <div class="daily-chart" aria-label="Aantal gemeten gesprekken per dag">
-            <div class="day" aria-label="Donderdag: 44 gesprekken"><span>do</span><span class="day-bar"><i style="--value: 15%"></i></span><strong>44</strong></div>
-            <div class="day" aria-label="Vrijdag: 190 gesprekken"><span>vr</span><span class="day-bar"><i style="--value: 65%"></i></span><strong>190</strong></div>
-            <div class="day" aria-label="Zaterdag: 200 gesprekken"><span>za</span><span class="day-bar"><i style="--value: 69%"></i></span><strong>200</strong></div>
-            <div class="day" aria-label="Zondag: 174 gesprekken"><span>zo</span><span class="day-bar"><i style="--value: 60%"></i></span><strong>174</strong></div>
-            <div class="day" aria-label="Maandag: 230 gesprekken"><span>ma</span><span class="day-bar"><i style="--value: 79%"></i></span><strong>230</strong></div>
-            <div class="day" aria-label="Dinsdag: 291 gesprekken"><span>di</span><span class="day-bar"><i style="--value: 100%"></i></span><strong>291</strong></div>
-            <div class="day" aria-label="Woensdag tot nu toe: 63 gesprekken"><span>wo*</span><span class="day-bar"><i style="--value: 22%"></i></span><strong>63</strong></div>
+            <div class="day" aria-label="Donderdag 10 september: 44 gesprekken"><span>do 10</span><span class="day-bar"><i style="--value: 15%"></i></span><strong>44</strong></div>
+            <div class="day" aria-label="Vrijdag 11 september: 190 gesprekken"><span>vr 11</span><span class="day-bar"><i style="--value: 65%"></i></span><strong>190</strong></div>
+            <div class="day" aria-label="Zaterdag 12 september: 200 gesprekken"><span>za 12</span><span class="day-bar"><i style="--value: 68%"></i></span><strong>200</strong></div>
+            <div class="day" aria-label="Zondag 13 september: 174 gesprekken"><span>zo 13</span><span class="day-bar"><i style="--value: 60%"></i></span><strong>174</strong></div>
+            <div class="day" aria-label="Maandag 14 september: 230 gesprekken"><span>ma 14</span><span class="day-bar"><i style="--value: 79%"></i></span><strong>230</strong></div>
+            <div class="day" aria-label="Dinsdag 15 september: 292 gesprekken"><span>di 15</span><span class="day-bar"><i style="--value: 100%"></i></span><strong>292</strong></div>
+            <div class="day" aria-label="Woensdag 16 september: 141 gesprekken"><span>wo 16</span><span class="day-bar"><i style="--value: 48%"></i></span><strong>141</strong></div>
+            <div class="day" aria-label="Donderdag 17 september: 237 gesprekken"><span>do 17</span><span class="day-bar"><i style="--value: 81%"></i></span><strong>237</strong></div>
           </div>
-          <p class="daily-note">* Woensdag is nog niet compleet.</p>
+          <p class="measurement"><strong>Wat wordt gemeten?</strong> Per dag tellen we per link hoeveel verschillende accounts die link in een nieuwe post deelden. Alleen links waaromheen ook reacties ontstonden komen in het overzicht. Eén account telt per link maximaal één keer per dag.</p>
         </div>
       </section>
     </main>
 
     <footer>
-      <p class="brand">traditionele<i>✳</i>media</p>
-      <p class="explainer">114 links gevonden in zeven meetdagen, exclusief terugkerende dagelijkse spelletjes. Gerangschikt op het dagelijkse aantal afzonderlijke accounts dat er een gesprek over begon, opgeteld over de periode.</p>
+      <p class="brand">traditionele.media</p>
+      <p class="explainer">143 verschillende links met gesprekken gemeten, samen goed voor 1.508 afzonderlijke gesprekken en 5.090 berichten. Polderprikker en MapTap zijn niet meegeteld. Links zonder gesprek worden nog niet opgeslagen.</p>
     </footer>
   </article>
 </body>
