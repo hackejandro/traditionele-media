@@ -1,7 +1,68 @@
 const revisions = [
   {
+    id: 'chatgpt',
+    title: 'ChatGPT-versie',
+    date: '21 september 2026 · versie 1',
+    pageTitle: 'Wat gebeurt er als we sociale media niet rond mensen, maar rond gesprekken ordenen?',
+    dek: '',
+    paragraphs: {
+      c01: 'Ik heb de afgelopen tijd een kleine website gebouwd: traditionele.media. De site verzamelt links die op het Nederlandstalige deel van Bluesky worden gedeeld en kijkt vervolgens hoeveel afzonderlijke mensen rond zo’n link een gesprek beginnen.',
+      c02: 'Niet hoeveel volgers iemand heeft. Niet hoe vaak één enthousiast account dezelfde link plaatst. Niet hoeveel seconden mensen boven een bericht blijven hangen. Maar: hoeveel verschillende mensen vonden deze link interessant genoeg om hem te delen, en ontstond daar ook daadwerkelijk interactie omheen?',
+      c03: 'Het begon als een vrij eenvoudig experiment. Ik wilde weten wat er op Bluesky werd besproken buiten de kring van mensen die ik zelf volg. Al snel bleek dat dit een verrassend ander beeld van het internet oplevert.',
+      c04: 'Zo ontdekte ik Polderprikker, een dagelijks spel waarin je locaties op een kaart van Nederland moet aanwijzen. Ik volgde geen van de mensen die hun resultaten deelden. Toch was duidelijk dat er op dat moment iets gemeenschappelijks gebeurde. Op een andere dag leerde ik door zo’n verzameling gesprekken dat er tonijnenmesterijen bestaan, en waarom die zo problematisch zijn.',
+      c05: 'Dat zijn kleine voorbeelden, maar ze lieten me iets groters zien: wat ik interessant vind op sociale media wordt nu voor een groot deel bepaald door wie ik ooit ben gaan volgen, of door wat een aanbevelingsalgoritme denkt dat mijn aandacht vasthoudt. Daartussen ontbreekt een derde mogelijkheid: kijken naar de onderwerpen waar op dat moment op verschillende plekken echte gesprekken omheen ontstaan.',
+      c06: '<span class="section-heading">Sociale media zijn steeds minder sociaal</span>',
+      c07: 'In de paper <em>Towards a Post-Social Media Studies</em> stellen Petter Törnberg en Richard Rogers dat het begrip ‘sociale media’ steeds minder goed beschrijft wat grote platforms werkelijk zijn geworden.',
+      c08: 'De klassieke belofte van sociale media was gebaseerd op drie elementen. Mensen maakten zelf de inhoud, die inhoud verspreidde zich via sociale relaties, en gebruikers reageerden publiekelijk op elkaar. Wie je volgde bepaalde in belangrijke mate wat je zag.',
+      c09: 'Die samenhang valt uit elkaar.',
+      c10: 'Op TikTok, Instagram, Facebook, YouTube en X wordt de selectie steeds minder bepaald door je sociale netwerk en steeds meer door aanbevelingssystemen. Die systemen kijken niet alleen naar actieve handelingen zoals delen of reageren, maar vooral naar passieve signalen: kijktijd, scrollgedrag, herhaling en de fractie van een seconde waarin iemand aarzelt.',
+      c11: 'De gebruiker verandert daarmee, in de woorden van de auteurs, van deelnemer in toeschouwer. Het platform laat niet voornamelijk zien wat de mensen om je heen belangrijk vinden, maar wat het systeem verwacht dat jou zo lang mogelijk laat kijken.',
+      c12: 'Generatieve AI versterkt die ontwikkeling. Platforms zijn steeds minder afhankelijk van mensen die zelf iets maken. Teksten, afbeeldingen en video’s kunnen goedkoop en vrijwel onbeperkt worden geproduceerd. Modellen maken de inhoud, algoritmes verspreiden die en mensen leveren vooral nog aandacht.',
+      c13: 'Tegelijkertijd verplaatst een deel van het echte sociale verkeer zich juist naar besloten omgevingen: groepsapps, Discordservers, Signal, WhatsApp, nieuwsbrieven en kleine online gemeenschappen. Daar is meer context en vertrouwen, maar wat er wordt besproken is veel minder zichtbaar voor de buitenwereld.',
+      c14: 'Het resultaat is een vreemd medialandschap. Publieke platforms worden steeds meer gepersonaliseerde omroepen, terwijl betekenisvolle sociale interactie zich terugtrekt in kleinere, besloten ruimtes.',
+      c15: '<span class="section-heading">Wat meten we eigenlijk?</span>',
+      c16: 'De meeste ranglijsten op sociale media zijn gebaseerd op volume. Een bericht met veel likes, veel weergaven of veel reacties stijgt naar boven.',
+      c17: 'Maar volume is een ambigu signaal.',
+      c18: 'Duizend likes kunnen betekenen dat duizend mensen iets belangrijk vinden. Ze kunnen ook betekenen dat één beroemd account een enorm bereik heeft. Tien posts met dezelfde link kunnen wijzen op brede belangstelling, maar ook afkomstig zijn van één account dat de link blijft herhalen. Een lange reactiedraad kan een inhoudelijk gesprek bevatten, maar net zo goed een ruzie tussen twee mensen zijn.',
+      c19: 'De keuze voor een meeteenheid bepaalt wat zichtbaar wordt.',
+      c20: 'Als je accounts centraal zet, zie je vooral de mensen die je al kent. Als je bereik centraal zet, zie je vooral wie al groot is. Als je kijktijd centraal zet, zie je wat moeilijk te negeren is. En als je simpelweg alle berichten telt, kunnen de luidste en meest actieve accounts de uitkomst domineren.',
+      c21: 'Daarom probeer ik op traditionele.media een ander signaal uit: afzonderlijke gespreksstarters rond dezelfde link.',
+      c22: 'De link is daarbij het gedeelde object. Mensen hoeven elkaar niet te volgen, niet tot dezelfde gemeenschap te behoren en het ook niet met elkaar eens te zijn. Wat ze delen is dat ze onafhankelijk van elkaar naar hetzelfde stuk van het web wijzen en daar reacties omheen ontstaan.',
+      c23: 'Eén account telt per link maximaal één keer mee. Tien keer dezelfde link plaatsen maakt een verhaal dus niet tien keer belangrijker. Pas wanneer verschillende accounts de link oppakken, wordt het een sterker signaal.',
+      c24: 'Dat is geen perfecte maat voor kwaliteit, waarheid of maatschappelijk belang. Het is wel een andere manier om verspreide publieke aandacht zichtbaar te maken.',
+      c25: '<span class="section-heading">Van sociale grafiek naar gedeeld object</span>',
+      c26: 'De paper beschrijft hoe we voor het bestuderen van hedendaagse platforms misschien minder naar vaste netwerken en meer naar stromen moeten kijken: hoe inhoud opkomt, zich verspreidt, verschillende publieken bereikt en weer verdwijnt.',
+      c27: 'Traditionele.media is daar een klein, praktisch experiment mee.',
+      c28: 'In plaats van te beginnen bij een persoon en diens netwerk, begint de site bij een link. Daaromheen worden berichten en reacties gegroepeerd. Het resultaat is geen persoonlijke tijdlijn, maar een tijdelijk overzicht van gedeelde aandacht.',
+      c29: 'Dat verandert ook wat je kunt ontdekken.',
+      c30: 'Een persoonlijke tijdlijn herhaalt in zekere zin je eerdere keuzes. Je ziet de mensen die je ooit bent gaan volgen, plus wat een algoritme daaruit over jou heeft afgeleid. Een overzicht op basis van afzonderlijke gesprekken kan juist iets tonen dat buiten je bestaande kring valt.',
+      c31: 'Niet omdat het ‘voor jou’ is geselecteerd, maar omdat meerdere andere mensen er kennelijk iets in zagen.',
+      c32: 'Dat verschil vind ik belangrijk. Personalisatie belooft relevantie, maar maakt het steeds moeilijker om te weten wat anderen zien. Iedereen krijgt een eigen informatiestroom. We delen hetzelfde platform, maar niet noodzakelijk dezelfde werkelijkheid.',
+      c33: 'Links kunnen in zo’n omgeving fungeren als kleine gemeenschappelijke ankerpunten. Rond een link kunnen mensen elkaar tegenspreken, aanvullen of op verschillende manieren betekenis geven aan hetzelfde bronmateriaal. Er blijft iets achter waarnaar anderen kunnen terugkeren.',
+      c34: 'Juist in een medialandschap van geïndividualiseerde feeds en privégesprekken is zo’n gedeeld object waardevol.',
+      c35: '<span class="section-heading">Geen objectieve populariteitsmeter</span>',
+      c36: 'Er zijn voldoende beperkingen.',
+      c37: 'De site ziet alleen openbare Nederlandstalige berichten op Bluesky. Besloten gesprekken blijven buiten beeld. Niet ieder gesprek bevat een link. Een link kan verschillende URL’s of doorverwijzingen hebben, waardoor dezelfde pagina niet altijd direct als hetzelfde object wordt herkend. Reacties zeggen bovendien niets automatisch over de kwaliteit van een gesprek.',
+      c38: 'Ook ‘afzonderlijke gesprekken’ blijft een ontworpen categorie. Ik heb besloten dat herhaling door hetzelfde account niet opnieuw meetelt, dat er meerdere mensen betrokken moeten zijn en dat dagelijkse spelletjes zoals Polderprikker niet thuishoren in een journalistiek weekoverzicht. Andere keuzes zouden andere resultaten opleveren.',
+      c39: 'Dat is geen fout in het systeem, maar precies het punt: iedere tijdlijn en iedere ranglijst bevat zulke keuzes. Bij grote platforms zijn ze alleen grotendeels onzichtbaar en gericht op commerciële doelen zoals kijktijd en terugkeer.',
+      c40: 'Traditionele.media maakt geen aanspraak op objectiviteit. Het stelt een ontwerpvraag:',
+      c41: '<strong class="pullquote">Wat wordt zichtbaar wanneer we onafhankelijke belangstelling en gesprek zwaarder wegen dan bereik, herhaling en voorspelde aandacht?</strong>',
+      c42: '<span class="section-heading">Sociale signalen kunnen anders</span>',
+      c43: 'We praten vaak over de problemen van sociale media alsof ze uitsluitend voortkomen uit slechte inhoud of slecht gedrag. Maar ook de ordening zelf doet ertoe.',
+      c44: 'Een systeem dat bereik beloont, produceert beroemdheden.<br>Een systeem dat kijktijd beloont, produceert onweerstaanbare inhoud.<br>Een systeem dat herhaling telt, beloont volharding en automatisering.<br>Een systeem dat sociale relaties centraal zet, houdt ons binnen bekende kringen.',
+      c45: 'Een systeem dat kijkt naar afzonderlijke gesprekken rond gedeelde bronnen zou iets anders kunnen belonen: onderwerpen die op meerdere plekken tegelijk nieuwsgierigheid, discussie of betrokkenheid oproepen.',
+      c46: 'Dat lost de problemen van sociale media niet op. Het voorkomt geen desinformatie, garandeert geen nuance en vervangt geen journalistieke afweging. Maar het maakt wel duidelijk dat de bekende tijdlijn niet de enige mogelijke interface voor het publieke internet is.',
+      c47: 'Misschien is de interessantste vraag daarom niet hoe we de huidige sociale media kunnen repareren.',
+      c48: 'Misschien moeten we opnieuw beginnen bij wat we zichtbaar willen maken — en vervolgens bepalen welke signalen daarbij horen.',
+      c49: 'Traditionele.media is mijn eerste, onvolmaakte poging om die vraag tastbaar te maken.'
+    }
+  },
+  {
+    id: 'first-draft',
     title: 'Eerste aanzet',
-    date: '18 september 2026',
+    date: '21 september 2026 · versie 2',
+    pageTitle: 'Waarom ik deze website heb gemaakt (een eerlijk verhaal)',
+    dek: 'Ik ga deze tekst mogelijk vaak updaten om minder dom te lijken, maar je kan alle versies terugkijken.',
     paragraphs: {
       p01: '<em>Uit pure luiheid vroeg ik ChatGPT om een artikel te schrijven over waarom ik deze site bouwde, maar de kwaliteit van schrijven was zo belabberd dat ik het zelf maar moet doen.</em>',
       p02: 'Ik zou hier kunnen beginnen met een groots altruïstisch statement: ik bouwde deze site omdat ik me zorgen maak over een samenleving met gebrek aan gedeelde ervaring en realiteit.',
@@ -18,8 +79,11 @@ const revisions = [
     }
   },
   {
+    id: 'current',
     title: 'Eerste volledige versie',
-    date: '21 september 2026',
+    date: '21 september 2026 · versie 3',
+    pageTitle: 'Waarom ik deze website heb gemaakt (een eerlijk verhaal)',
+    dek: 'Ik ga deze tekst mogelijk vaak updaten om minder dom te lijken, maar je kan alle versies terugkijken.',
     paragraphs: {
       p01: '<em>Uit pure luiheid vroeg ik ChatGPT om een artikel te schrijven over waarom ik deze site bouwde, maar de kwaliteit van schrijven was zo belabberd dat ik het zelf maar moet doen.</em>',
       p02: 'Ik zou hier kunnen beginnen met een groots altruïstisch statement: ik bouwde deze site omdat ik me zorgen maak over een samenleving met gebrek aan gedeelde ervaring en realiteit.',
@@ -53,6 +117,8 @@ const revisions = [
 const STORAGE_KEY = 'traditionele-media-margin-comments-v1';
 const body = document.getElementById('article-body');
 const knob = document.getElementById('revision-knob');
+const articleTitle = document.getElementById('article-title');
+const articleDek = document.getElementById('article-dek');
 const panel = document.getElementById('comment-panel');
 const thread = document.getElementById('comment-thread');
 const quote = document.getElementById('selected-quote');
@@ -68,7 +134,7 @@ function loadComments() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]').map(comment => ({
       ...comment,
-      revisionIndex: Number.isInteger(comment.revisionIndex) ? comment.revisionIndex : revisions.length - 1
+      revisionId: comment.revisionId || (comment.revisionIndex === 0 ? 'first-draft' : 'current')
     }));
   }
   catch { return []; }
@@ -89,7 +155,7 @@ function allParagraphIds() {
 }
 
 function commentCount(id) {
-  return comments.filter(comment => comment.paragraphId === id && comment.revisionIndex === revisionIndex).length;
+  return comments.filter(comment => comment.paragraphId === id && comment.revisionId === revisions[revisionIndex].id).length;
 }
 
 function makeParagraph(id, html) {
@@ -113,6 +179,9 @@ function makeParagraph(id, html) {
 
 function initialRender() {
   const current = revisions[revisionIndex];
+  articleTitle.textContent = current.pageTitle;
+  articleDek.textContent = current.dek;
+  articleDek.hidden = !current.dek;
   for (const id of allParagraphIds()) {
     const html = current.paragraphs[id];
     const p = makeParagraph(id, html || '');
@@ -127,6 +196,9 @@ function setRevision(nextIndex) {
   const previous = revisions[revisionIndex];
   const next = revisions[nextIndex];
   revisionIndex = nextIndex;
+  articleTitle.textContent = next.pageTitle;
+  articleDek.textContent = next.dek;
+  articleDek.hidden = !next.dek;
   for (const id of allParagraphIds()) {
     const p = body.querySelector(`[data-paragraph-id="${id}"]`);
     const text = p.querySelector('.paragraph-text');
@@ -168,7 +240,7 @@ function updateRevisionControls() {
   const revision = revisions[revisionIndex];
   document.getElementById('version-title').textContent = revision.title;
   document.getElementById('version-date').textContent = revision.date;
-  knob.style.setProperty('--angle', revisionIndex === 0 ? '-45deg' : '135deg');
+  knob.style.setProperty('--angle', `${-45 + (revisionIndex * 90)}deg`);
   knob.setAttribute('aria-label', revisionIndex === revisions.length - 1 ? 'Ga naar de vorige versie' : 'Ga naar de volgende versie');
 }
 
@@ -196,7 +268,7 @@ function closeComments() {
 
 function renderThread() {
   thread.replaceChildren();
-  const items = comments.filter(comment => comment.paragraphId === selectedParagraph && comment.revisionIndex === revisionIndex);
+  const items = comments.filter(comment => comment.paragraphId === selectedParagraph && comment.revisionId === revisions[revisionIndex].id);
   if (!items.length) {
     const empty = document.createElement('p');
     empty.className = 'empty-comments';
@@ -249,7 +321,7 @@ form.addEventListener('submit', event => {
   event.preventDefault();
   const text = textarea.value.trim();
   if (!text || !selectedParagraph) return;
-  comments.push({id: crypto.randomUUID(), paragraphId: selectedParagraph, revisionIndex, parentId: replyParent, text, createdAt: new Date().toISOString()});
+  comments.push({id: crypto.randomUUID(), paragraphId: selectedParagraph, revisionId: revisions[revisionIndex].id, parentId: replyParent, text, createdAt: new Date().toISOString()});
   saveComments();
   textarea.value = '';
   replyParent = null;

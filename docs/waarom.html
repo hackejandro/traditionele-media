@@ -25,6 +25,8 @@
     .article-body{counter-reset:paragraph}
     .paragraph{position:relative;margin:0 0 28px;padding:2px 48px 2px 0;font-family:var(--serif);font-size:21px;line-height:1.58;transition:opacity 180ms ease,background-color 400ms ease}
     .paragraph[data-intro="true"]{font-size:24px;line-height:1.48}
+    .section-heading{display:block;margin:56px 0 4px;font-family:var(--serif);font-size:34px;font-weight:400;line-height:1.08;letter-spacing:-.025em}
+    .pullquote{display:block;margin:34px 0;font-family:var(--serif);font-size:29px;font-weight:400;line-height:1.3}
     .paragraph.is-changing{opacity:.25}
     .paragraph.is-new{background:linear-gradient(90deg,rgb(36 98 67 / 12%),transparent 72%)}
     .paragraph.is-absent{display:none}
@@ -74,8 +76,8 @@
     <a class="back" href="./index.html">← Terug naar traditionele.media</a>
     <header class="article-header">
       <p class="eyebrow">Over dit experiment</p>
-      <h1>Waarom ik deze website heb gemaakt (een eerlijk verhaal)</h1>
-      <p class="dek">Ik ga deze tekst mogelijk vaak updaten om minder dom te lijken, maar je kan alle versies terugkijken.</p>
+      <h1 id="article-title">Waarom ik deze website heb gemaakt (een eerlijk verhaal)</h1>
+      <p class="dek" id="article-dek">Ik ga deze tekst mogelijk vaak updaten om minder dom te lijken, maar je kan alle versies terugkijken.</p>
     </header>
 
     <div class="article-layout">
