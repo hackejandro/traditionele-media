@@ -93,7 +93,7 @@ const revisions = [
   }
 ];
 
-const STORAGE_KEY = 'traditionele-media-margin-comments-v1';
+const COMMENTS_URL = 'https://commonplace-stream.alejandrotauber.workers.dev/comments';
 const body = document.getElementById('article-body');
 const knob = document.getElementById('revision-knob');
 const articleTitle = document.getElementById('article-title');
@@ -104,24 +104,40 @@ const quote = document.getElementById('selected-quote');
 const form = document.getElementById('comment-form');
 const textarea = document.getElementById('comment-text');
 const replyingTo = document.getElementById('replying-to');
+const formNote = document.getElementById('comment-form-note');
+const submitButton = form.querySelector('.submit-comment');
+const websiteField = document.getElementById('comment-website');
 let revisionIndex = revisions.length - 1;
 let selectedParagraph = null;
 let replyParent = null;
 let revisionRenderToken = 0;
-let comments = loadComments();
+let commentLoadToken = 0;
+let comments = [];
 
-function loadComments() {
+async function loadComments() {
+  const revisionId = revisions[revisionIndex].id;
+  const loadToken = ++commentLoadToken;
+  comments = [];
+  updateCommentCounts();
+  if (selectedParagraph) renderThread('Reacties laden…');
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]').map(comment => ({
-      ...comment,
-      revisionId: comment.revisionId || (comment.revisionIndex === 0 ? 'first-draft' : 'current')
-    }));
+    const url = new URL(COMMENTS_URL);
+    url.searchParams.set('article', 'waarom');
+    url.searchParams.set('revision', revisionId);
+    const response = await fetch(url, {cache: 'no-store'});
+    if (!response.ok) throw new Error();
+    const data = await response.json();
+    if (loadToken !== commentLoadToken || revisions[revisionIndex].id !== revisionId) return;
+    comments = Array.isArray(data.comments) ? data.comments : [];
+    updateCommentCounts();
+    if (selectedParagraph) renderThread();
   }
-  catch { return []; }
-}
-
-function saveComments() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(comments)); } catch {}
+  catch {
+    if (loadToken !== commentLoadToken) return;
+    comments = [];
+    updateCommentCounts();
+    if (selectedParagraph) renderThread('De reacties konden niet worden opgehaald. Probeer het later opnieuw.');
+  }
 }
 
 function plainText(html) {
@@ -149,9 +165,8 @@ function makeParagraph(id, html) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'comment-button';
-  button.setAttribute('aria-label', 'Reageer op deze alinea');
   button.setAttribute('aria-expanded', 'false');
-  button.textContent = commentCount(id) || '+';
+  setCommentCount(button, commentCount(id));
   button.addEventListener('click', () => openComments(id));
   p.append(text, button);
   return p;
@@ -169,6 +184,7 @@ function initialRender() {
     body.append(p);
   }
   updateRevisionControls();
+  loadComments();
 }
 
 function setRevision(nextIndex) {
@@ -199,7 +215,6 @@ function setRevision(nextIndex) {
     }, 180);
   }
   updateRevisionControls();
-  updateCommentCounts();
   if (selectedParagraph) {
     const selectedHtml = next.paragraphs[selectedParagraph];
     if (selectedHtml) {
@@ -210,14 +225,21 @@ function setRevision(nextIndex) {
     }
     else closeComments();
   }
+  loadComments();
 }
 
 function updateCommentCounts() {
   for (const id of allParagraphIds()) {
     const button = body.querySelector(`[data-paragraph-id="${id}"] .comment-button`);
     const count = commentCount(id);
-    button.textContent = count || '+';
+    setCommentCount(button, count);
   }
+}
+
+function setCommentCount(button, count) {
+  button.textContent = String(count);
+  button.setAttribute('aria-label', `${count} ${count === 1 ? 'reactie' : 'reacties'} op deze alinea; open de kantlijn`);
+  button.title = `${count} ${count === 1 ? 'reactie' : 'reacties'}`;
 }
 
 function updateRevisionControls() {
@@ -250,13 +272,13 @@ function closeComments() {
   replyParent = null;
 }
 
-function renderThread() {
+function renderThread(emptyMessage = 'Nog geen reacties. Je kunt hier als eerste iets naast zetten.') {
   thread.replaceChildren();
   const items = comments.filter(comment => comment.paragraphId === selectedParagraph && comment.revisionId === revisions[revisionIndex].id);
   if (!items.length) {
     const empty = document.createElement('p');
     empty.className = 'empty-comments';
-    empty.textContent = 'Nog geen reacties. Je kunt hier als eerste iets naast zetten.';
+    empty.textContent = emptyMessage;
     thread.append(empty);
     return;
   }
@@ -301,18 +323,50 @@ knob.addEventListener('keydown', event => {
 });
 document.getElementById('close-panel').addEventListener('click', closeComments);
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && panel.classList.contains('is-open')) closeComments(); });
-form.addEventListener('submit', event => {
+form.addEventListener('submit', async event => {
   event.preventDefault();
   const text = textarea.value.trim();
   if (!text || !selectedParagraph) return;
-  comments.push({id: crypto.randomUUID(), paragraphId: selectedParagraph, revisionId: revisions[revisionIndex].id, parentId: replyParent, text, createdAt: new Date().toISOString()});
-  saveComments();
-  textarea.value = '';
-  replyParent = null;
-  replyingTo.classList.remove('is-visible');
-  const button = body.querySelector(`[data-paragraph-id="${selectedParagraph}"] .comment-button`);
-  button.textContent = commentCount(selectedParagraph);
-  renderThread();
+  const revisionId = revisions[revisionIndex].id;
+  const paragraphId = selectedParagraph;
+  submitButton.disabled = true;
+  submitButton.textContent = 'Plaatsen…';
+  formNote.textContent = 'Je reactie wordt openbaar opgeslagen bij deze versie van de alinea.';
+  formNote.classList.remove('is-error');
+  try {
+    const response = await fetch(COMMENTS_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        articleId: 'waarom',
+        revisionId,
+        paragraphId,
+        parentId: replyParent,
+        text,
+        website: websiteField.value
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.comment) throw new Error(data.error || 'Plaatsen is niet gelukt.');
+    if (revisions[revisionIndex].id === revisionId) {
+      comments.push(data.comment);
+      textarea.value = '';
+      websiteField.value = '';
+      replyParent = null;
+      replyingTo.classList.remove('is-visible');
+      updateCommentCounts();
+      renderThread();
+    }
+    formNote.textContent = 'Openbaar zichtbaar en gekoppeld aan deze tekstversie.';
+  }
+  catch (error) {
+    formNote.textContent = error instanceof Error ? error.message : 'Plaatsen is niet gelukt.';
+    formNote.classList.add('is-error');
+  }
+  finally {
+    submitButton.disabled = false;
+    submitButton.textContent = 'Plaats reactie';
+  }
 });
 
 initialRender();

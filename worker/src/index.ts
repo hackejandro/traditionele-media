@@ -14,6 +14,8 @@ const MAX_CANDIDATES = 300;
 const MAX_ITEMS = 20;
 const MAX_THREAD_HYDRATIONS = 20;
 const PUBLIC_FEED = "https://traditionele.media/feed.json";
+const COMMENT_RATE_WINDOW_SECONDS = 10 * 60;
+const COMMENT_RATE_LIMIT = 5;
 type WorkerEnv = Env & { GITHUB_TRIGGER_TOKEN: string };
 
 type Link = { url: string; title: string; description: string };
@@ -24,6 +26,15 @@ type FeedItem = { url: string; domain: string; title: string; description: strin
 type Snapshot = { generatedAt: string; expiresAfterHours: 24; items: FeedItem[] };
 type HistoricalFeedItem = FeedItem & { id?: string };
 type HistoricalFeed = { generatedAt?: string | null; items?: HistoricalFeedItem[] };
+type ArticleCommentRow = {
+  id: string;
+  article_id: string;
+  revision_id: string;
+  paragraph_id: string;
+  parent_id: string | null;
+  body: string;
+  created_at: number;
+};
 type DailySnapshot = {
   snapshotDate: string;
   linkId: string;
@@ -189,6 +200,120 @@ function visitorHeaders(request: Request): HeadersInit {
     "Cache-Control": "no-store",
     "Vary": "Origin",
   };
+}
+
+function commentResponse(request: Request, body: unknown, status = 200): Response {
+  return Response.json(body, { status, headers: visitorHeaders(request) });
+}
+
+function isCommentLocation(articleId: string, revisionId: string, paragraphId?: string): boolean {
+  if (articleId !== "waarom" || !["chatgpt", "current"].includes(revisionId)) return false;
+  if (!paragraphId) return true;
+  return revisionId === "chatgpt" ? /^c\d{2}$/.test(paragraphId) : /^p\d{2}$/.test(paragraphId);
+}
+
+function serializeComment(row: ArticleCommentRow) {
+  return {
+    id: row.id,
+    articleId: row.article_id,
+    revisionId: row.revision_id,
+    paragraphId: row.paragraph_id,
+    parentId: row.parent_id,
+    text: row.body,
+    createdAt: new Date(row.created_at).toISOString(),
+  };
+}
+
+async function commentRateKey(request: Request): Promise<string> {
+  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ip));
+  const token = [...new Uint8Array(digest)].slice(0, 12).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  const window = Math.floor(Date.now() / (COMMENT_RATE_WINDOW_SECONDS * 1000));
+  return `comments:rate:${window}:${token}`;
+}
+
+async function handleComments(request: Request, env: Env): Promise<Response> {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: visitorHeaders(request) });
+
+  const url = new URL(request.url);
+  if (request.method === "GET") {
+    const articleId = url.searchParams.get("article") ?? "";
+    const revisionId = url.searchParams.get("revision") ?? "";
+    if (!isCommentLocation(articleId, revisionId)) {
+      return commentResponse(request, { error: "Ongeldige tekstversie." }, 400);
+    }
+    const result = await env.HISTORY_DB.prepare(
+      `SELECT id, article_id, revision_id, paragraph_id, parent_id, body, created_at
+       FROM article_comments
+       WHERE article_id = ? AND revision_id = ? AND status = 'visible'
+       ORDER BY created_at ASC
+       LIMIT 500`,
+    ).bind(articleId, revisionId).all<ArticleCommentRow>();
+    return commentResponse(request, { comments: result.results.map(serializeComment) });
+  }
+
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405, headers: visitorHeaders(request) });
+  }
+
+  const contentLength = Number(request.headers.get("Content-Length") ?? "0");
+  if (contentLength > 8192) return commentResponse(request, { error: "Reactie is te lang." }, 413);
+
+  let value: unknown;
+  try {
+    value = await request.json();
+  } catch {
+    return commentResponse(request, { error: "Ongeldige reactie." }, 400);
+  }
+  if (!value || typeof value !== "object") return commentResponse(request, { error: "Ongeldige reactie." }, 400);
+  const payload = value as Record<string, unknown>;
+  if (typeof payload.website === "string" && payload.website.trim()) {
+    return commentResponse(request, { accepted: true }, 202);
+  }
+
+  const articleId = typeof payload.articleId === "string" ? payload.articleId : "";
+  const revisionId = typeof payload.revisionId === "string" ? payload.revisionId : "";
+  const paragraphId = typeof payload.paragraphId === "string" ? payload.paragraphId : "";
+  const parentId = typeof payload.parentId === "string" && payload.parentId ? payload.parentId : null;
+  const text = typeof payload.text === "string" ? payload.text.trim() : "";
+  if (!isCommentLocation(articleId, revisionId, paragraphId) || !text || text.length > 1200) {
+    return commentResponse(request, { error: "Controleer je reactie en probeer opnieuw." }, 400);
+  }
+
+  if (parentId) {
+    const parent = await env.HISTORY_DB.prepare(
+      `SELECT id FROM article_comments
+       WHERE id = ? AND article_id = ? AND revision_id = ? AND paragraph_id = ?
+         AND parent_id IS NULL AND status = 'visible'`,
+    ).bind(parentId, articleId, revisionId, paragraphId).first<{ id: string }>();
+    if (!parent) return commentResponse(request, { error: "De reactie waarop je antwoordt bestaat niet meer." }, 409);
+  }
+
+  const rateKey = await commentRateKey(request);
+  const recent = Number(await env.COMMONPLACE.get(rateKey) ?? "0");
+  if (recent >= COMMENT_RATE_LIMIT) {
+    return commentResponse(request, { error: "Even rustig aan: probeer het over tien minuten opnieuw." }, 429);
+  }
+
+  const id = crypto.randomUUID();
+  const createdAt = Date.now();
+  await env.HISTORY_DB.prepare(
+    `INSERT INTO article_comments(id, article_id, revision_id, paragraph_id, parent_id, body, created_at)
+     VALUES(?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(id, articleId, revisionId, paragraphId, parentId, text, createdAt).run();
+  await env.COMMONPLACE.put(rateKey, String(recent + 1), { expirationTtl: COMMENT_RATE_WINDOW_SECONDS + 60 });
+
+  return commentResponse(request, {
+    comment: serializeComment({
+      id,
+      article_id: articleId,
+      revision_id: revisionId,
+      paragraph_id: paragraphId,
+      parent_id: parentId,
+      body: text,
+      created_at: createdAt,
+    }),
+  }, 201);
 }
 
 function isDutch(langs: unknown): boolean {
@@ -717,6 +842,7 @@ function collector(env: Env): DurableObjectStub<CommonplaceCollector> {
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const path = new URL(request.url).pathname;
+    if (path === "/comments") return handleComments(request, env);
     if (path === "/visitors") {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: visitorHeaders(request) });
       if (request.method !== "GET" && request.method !== "POST") {

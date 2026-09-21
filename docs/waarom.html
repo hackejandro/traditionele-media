@@ -62,7 +62,10 @@
     .comment-form label{display:block;margin-bottom:9px;font-size:11px;font-weight:800}
     .comment-form textarea{width:100%;min-height:110px;resize:vertical;padding:13px;border:1px solid var(--line);border-radius:0;background:var(--page);font-family:var(--serif);font-size:16px;line-height:1.45}
     .form-note{margin:9px 0 0;color:var(--muted);font-size:10px;line-height:1.45}
+    .form-note.is-error{color:#842525;font-weight:700}
+    .honeypot{position:absolute!important;left:-10000px!important;width:1px!important;height:1px!important;overflow:hidden!important}
     .submit-comment{margin-top:14px;padding:10px 14px;border:1px solid var(--accent);background:var(--accent);color:white;font-size:11px;font-weight:800}
+    .submit-comment:disabled{cursor:wait;opacity:.55}
     .replying-to{display:none;margin:0 0 10px;color:var(--accent);font-size:11px}
     .replying-to.is-visible{display:block}
     @media(max-width:900px){.article-layout{grid-template-columns:1fr;gap:34px}.history{position:relative;top:auto;grid-row:1}.article-body{grid-row:2}.back{margin-bottom:48px}.knob-wrap{max-width:330px}}
@@ -101,8 +104,9 @@
     <form class="comment-form" id="comment-form">
       <p class="replying-to" id="replying-to"></p>
       <label for="comment-text">Anonieme reactie</label>
-      <textarea id="comment-text" required placeholder="Schrijf iets in de kantlijn…"></textarea>
-      <p class="form-note">Alleen lokaal opgeslagen in deze browser en gekoppeld aan de versie die je nu bekijkt.</p>
+      <textarea id="comment-text" required maxlength="1200" placeholder="Schrijf iets in de kantlijn…"></textarea>
+      <div class="honeypot" aria-hidden="true"><label for="comment-website">Website</label><input id="comment-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+      <p class="form-note" id="comment-form-note">Openbaar zichtbaar en gekoppeld aan de versie die je nu bekijkt.</p>
       <button class="submit-comment" type="submit">Plaats reactie</button>
     </form>
   </aside>
