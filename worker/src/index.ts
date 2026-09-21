@@ -197,6 +197,8 @@ function visitorHeaders(request: Request): HeadersInit {
   return {
     "Access-Control-Allow-Origin": origin && SITE_ORIGINS.has(origin) ? origin : "https://traditionele.media",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
     "Cache-Control": "no-store",
     "Vary": "Origin",
   };
