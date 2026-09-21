@@ -53,10 +53,8 @@
     .empty-comments{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
     .comment{padding:15px;border:1px solid var(--soft);background:var(--page)}
     .comment.is-reply{margin-left:24px;border-left-color:var(--accent)}
-    .comment-meta{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase}
+    .comment-meta{color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase}
     .comment p{margin:10px 0 0;font-family:var(--serif);font-size:16px;line-height:1.42}
-    .state{color:var(--loose)}
-    .state.is-set{color:var(--accent)}
     .reply-action{margin:12px 0 0;padding:0;border:0;border-bottom:1px solid currentColor;background:none;color:var(--accent);font-size:11px;font-weight:700}
     .comment-form{padding-top:22px;border-top:1px solid var(--line)}
     .comment-form label{display:block;margin-bottom:9px;font-size:11px;font-weight:800}
@@ -76,8 +74,8 @@
     <a class="back" href="./index.html">← Terug naar traditionele.media</a>
     <header class="article-header">
       <p class="eyebrow">Over dit experiment</p>
-      <h1>Waarom ik deze website heb gemaakt <em>(een eerlijk verhaal)</em></h1>
-      <p class="dek">Een tekst in ontwikkeling, inclusief zijn eerdere versies en gesprekken in de kantlijn.</p>
+      <h1>Waarom ik deze website heb gemaakt (een eerlijk verhaal)</h1>
+      <p class="dek">Ik ga deze tekst mogelijk vaak updaten om minder dom te lijken, maar je kan alle versies terugkijken.</p>
     </header>
 
     <div class="article-layout">
@@ -102,7 +100,7 @@
       <p class="replying-to" id="replying-to"></p>
       <label for="comment-text">Anonieme reactie</label>
       <textarea id="comment-text" required placeholder="Schrijf iets in de kantlijn…"></textarea>
-      <p class="form-note">Alleen lokaal opgeslagen in deze browser. Een reactie staat ‘los’ totdat iemand erop antwoordt.</p>
+      <p class="form-note">Alleen lokaal opgeslagen in deze browser en gekoppeld aan de versie die je nu bekijkt.</p>
       <button class="submit-comment" type="submit">Plaats reactie</button>
     </form>
   </aside>

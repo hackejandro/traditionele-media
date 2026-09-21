@@ -65,7 +65,12 @@ let replyParent = null;
 let comments = loadComments();
 
 function loadComments() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]').map(comment => ({
+      ...comment,
+      revisionIndex: Number.isInteger(comment.revisionIndex) ? comment.revisionIndex : revisions.length - 1
+    }));
+  }
   catch { return []; }
 }
 
@@ -84,7 +89,7 @@ function allParagraphIds() {
 }
 
 function commentCount(id) {
-  return comments.filter(comment => comment.paragraphId === id).length;
+  return comments.filter(comment => comment.paragraphId === id && comment.revisionIndex === revisionIndex).length;
 }
 
 function makeParagraph(id, html) {
@@ -138,10 +143,24 @@ function setRevision(nextIndex) {
     }, 180);
   }
   updateRevisionControls();
+  updateCommentCounts();
   if (selectedParagraph) {
     const selectedHtml = next.paragraphs[selectedParagraph];
-    if (selectedHtml) quote.textContent = plainText(selectedHtml);
+    if (selectedHtml) {
+      quote.textContent = plainText(selectedHtml);
+      replyParent = null;
+      replyingTo.classList.remove('is-visible');
+      renderThread();
+    }
     else closeComments();
+  }
+}
+
+function updateCommentCounts() {
+  for (const id of allParagraphIds()) {
+    const button = body.querySelector(`[data-paragraph-id="${id}"] .comment-button`);
+    const count = commentCount(id);
+    button.textContent = count || '+';
   }
 }
 
@@ -177,7 +196,7 @@ function closeComments() {
 
 function renderThread() {
   thread.replaceChildren();
-  const items = comments.filter(comment => comment.paragraphId === selectedParagraph);
+  const items = comments.filter(comment => comment.paragraphId === selectedParagraph && comment.revisionIndex === revisionIndex);
   if (!items.length) {
     const empty = document.createElement('p');
     empty.className = 'empty-comments';
@@ -187,22 +206,19 @@ function renderThread() {
   }
   const roots = items.filter(comment => !comment.parentId);
   for (const root of roots) {
-    appendComment(root, false, items.some(comment => comment.parentId === root.id));
-    for (const reply of items.filter(comment => comment.parentId === root.id)) appendComment(reply, true, true);
+    appendComment(root, false);
+    for (const reply of items.filter(comment => comment.parentId === root.id)) appendComment(reply, true);
   }
 }
 
-function appendComment(comment, isReply, isSet) {
+function appendComment(comment, isReply) {
   const article = document.createElement('article');
   article.className = 'comment' + (isReply ? ' is-reply' : '');
   const meta = document.createElement('div');
   meta.className = 'comment-meta';
   const author = document.createElement('span');
   author.textContent = 'anoniem · ' + new Date(comment.createdAt).toLocaleString('nl-NL', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-  const state = document.createElement('span');
-  state.className = 'state' + (isSet ? ' is-set' : '');
-  state.textContent = isSet ? 'vastgezet' : 'staat los';
-  meta.append(author, state);
+  meta.append(author);
   const text = document.createElement('p');
   text.textContent = comment.text;
   article.append(meta, text);
@@ -233,7 +249,7 @@ form.addEventListener('submit', event => {
   event.preventDefault();
   const text = textarea.value.trim();
   if (!text || !selectedParagraph) return;
-  comments.push({id: crypto.randomUUID(), paragraphId: selectedParagraph, parentId: replyParent, text, createdAt: new Date().toISOString()});
+  comments.push({id: crypto.randomUUID(), paragraphId: selectedParagraph, revisionIndex, parentId: replyParent, text, createdAt: new Date().toISOString()});
   saveComments();
   textarea.value = '';
   replyParent = null;
