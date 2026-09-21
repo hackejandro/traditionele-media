@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Waarom traditionele.media bestaat: een eerlijk verhaal van Alejandro Tauber.">
+  <title>Waarom ik deze website heb gemaakt — Traditionele Media</title>
+  <style>
+    :root{--page:#f5f2e8;--surface:#faf8f1;--text:#121212;--muted:#66655f;--line:#171717;--soft:#cac7bc;--accent:#246243;--loose:#a14e2d;--serif:"Iowan Old Style","Baskerville","Times New Roman",serif;--sans:"Helvetica Neue",Helvetica,Arial,sans-serif}
+    *{box-sizing:border-box}
+    html{background:var(--page);scroll-behavior:smooth}
+    body{margin:0;background:var(--page);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+    button,textarea{font:inherit;color:inherit}
+    button{cursor:pointer}
+    a{color:inherit}
+    .site-note{width:min(calc(100% - 64px),1180px);margin-inline:auto;padding:26px 0 20px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.5}
+    .site-note a{color:var(--accent);font-weight:700;text-underline-offset:3px}
+    .page{width:min(calc(100% - 64px),1180px);margin:0 auto;padding:34px 0 110px}
+    .back{display:inline-block;margin-bottom:72px;color:var(--accent);font-size:12px;font-weight:700;text-decoration:none;border-bottom:1px solid currentColor;padding-bottom:3px}
+    .article-header{max-width:930px;padding-bottom:38px;border-bottom:1px solid var(--line)}
+    .eyebrow{margin:0 0 15px;color:var(--accent);font-size:12px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+    h1{max-width:900px;margin:0;font-family:var(--serif);font-size:clamp(52px,7vw,94px);font-weight:400;line-height:.93;letter-spacing:-.052em}
+    .dek{max-width:690px;margin:25px 0 0;color:var(--muted);font-family:var(--serif);font-size:21px;line-height:1.38}
+    .article-layout{display:grid;grid-template-columns:minmax(0,760px) 280px;gap:80px;align-items:start;margin-top:44px}
+    .article-body{counter-reset:paragraph}
+    .paragraph{position:relative;margin:0 0 28px;padding:2px 48px 2px 0;font-family:var(--serif);font-size:21px;line-height:1.58;transition:opacity 180ms ease,background-color 400ms ease}
+    .paragraph[data-intro="true"]{font-size:24px;line-height:1.48}
+    .paragraph.is-changing{opacity:.25}
+    .paragraph.is-new{background:linear-gradient(90deg,rgb(36 98 67 / 12%),transparent 72%)}
+    .paragraph.is-absent{display:none}
+    .comment-button{position:absolute;top:8px;right:0;display:grid;place-items:center;min-width:31px;height:27px;padding:0 7px;border:1px solid var(--soft);border-radius:999px;background:transparent;color:var(--muted);font-size:10px;font-weight:800}
+    .comment-button:hover,.comment-button[aria-expanded="true"]{color:var(--page);border-color:var(--accent);background:var(--accent)}
+    .comment-button:focus-visible,.knob:focus-visible,.close-panel:focus-visible,.submit-comment:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+    .history{position:sticky;top:28px;padding:24px 0 28px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .history-label{margin:0;color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+    .knob-wrap{display:grid;grid-template-columns:76px 1fr;gap:18px;align-items:center;margin-top:22px}
+    .knob{position:relative;width:72px;height:72px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface);box-shadow:inset 0 0 0 6px var(--page)}
+    .knob::after{content:"";position:absolute;top:8px;left:50%;width:2px;height:25px;background:var(--accent);transform:translateX(-50%) rotate(var(--angle));transform-origin:50% 28px;transition:transform 260ms ease}
+    .knob-center{position:absolute;inset:25px;border-radius:50%;background:var(--line)}
+    .version strong{display:block;font-family:var(--serif);font-size:20px;font-weight:400;line-height:1.1}
+    .version span{display:block;margin-top:5px;color:var(--muted);font-size:11px;line-height:1.35}
+    .history-help{margin:19px 0 0;color:var(--muted);font-size:11px;line-height:1.5}
+    .legend{display:flex;gap:8px;align-items:center;margin-top:16px;color:var(--muted);font-size:10px}
+    .legend i{width:22px;height:8px;background:rgb(36 98 67 / 14%)}
+    .comment-panel{position:fixed;z-index:10;top:0;right:0;width:min(420px,100vw);height:100dvh;padding:28px 28px 40px;overflow:auto;border-left:1px solid var(--line);background:var(--surface);box-shadow:-18px 0 60px rgb(0 0 0 / 10%);transform:translateX(104%);transition:transform 240ms ease}
+    .comment-panel.is-open{transform:translateX(0)}
+    .panel-head{display:flex;justify-content:space-between;gap:24px;align-items:start;padding-bottom:20px;border-bottom:1px solid var(--line)}
+    .panel-head p{margin:0;color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+    .panel-head h2{margin:7px 0 0;font-family:var(--serif);font-size:30px;font-weight:400;line-height:1.05}
+    .close-panel{width:35px;height:35px;border:1px solid var(--line);border-radius:50%;background:transparent;font-size:20px;line-height:1}
+    .selected-quote{margin:20px 0;padding:14px 0 14px 16px;border-left:2px solid var(--accent);color:var(--muted);font-family:var(--serif);font-size:15px;line-height:1.45}
+    .thread{display:grid;gap:14px;margin:0 0 26px}
+    .empty-comments{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+    .comment{padding:15px;border:1px solid var(--soft);background:var(--page)}
+    .comment.is-reply{margin-left:24px;border-left-color:var(--accent)}
+    .comment-meta{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase}
+    .comment p{margin:10px 0 0;font-family:var(--serif);font-size:16px;line-height:1.42}
+    .state{color:var(--loose)}
+    .state.is-set{color:var(--accent)}
+    .reply-action{margin:12px 0 0;padding:0;border:0;border-bottom:1px solid currentColor;background:none;color:var(--accent);font-size:11px;font-weight:700}
+    .comment-form{padding-top:22px;border-top:1px solid var(--line)}
+    .comment-form label{display:block;margin-bottom:9px;font-size:11px;font-weight:800}
+    .comment-form textarea{width:100%;min-height:110px;resize:vertical;padding:13px;border:1px solid var(--line);border-radius:0;background:var(--page);font-family:var(--serif);font-size:16px;line-height:1.45}
+    .form-note{margin:9px 0 0;color:var(--muted);font-size:10px;line-height:1.45}
+    .submit-comment{margin-top:14px;padding:10px 14px;border:1px solid var(--accent);background:var(--accent);color:white;font-size:11px;font-weight:800}
+    .replying-to{display:none;margin:0 0 10px;color:var(--accent);font-size:11px}
+    .replying-to.is-visible{display:block}
+    @media(max-width:900px){.article-layout{grid-template-columns:1fr;gap:34px}.history{position:relative;top:auto;grid-row:1}.article-body{grid-row:2}.back{margin-bottom:48px}.knob-wrap{max-width:330px}}
+    @media(max-width:620px){.site-note,.page{width:min(calc(100% - 28px),1180px)}.site-note{padding-top:18px}.page{padding-top:24px}.back{margin-bottom:38px}h1{font-size:clamp(47px,14vw,68px)}.article-layout{margin-top:32px}.paragraph{padding-right:39px;font-size:19px}.paragraph[data-intro="true"]{font-size:21px}.comment-panel{padding:22px 18px 34px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.paragraph,.knob::after,.comment-panel{transition:none}}
+  </style>
+</head>
+<body>
+  <p class="site-note">traditionele.media is een website voor experimenten met (nieuws)media, gemaakt door <a href="https://www.linkedin.com/in/alejandro-tauber-4b496757/" target="_blank" rel="noopener noreferrer">Alejandro Tauber</a>.</p>
+  <main class="page">
+    <a class="back" href="./index.html">← Terug naar traditionele.media</a>
+    <header class="article-header">
+      <p class="eyebrow">Over dit experiment</p>
+      <h1>Waarom ik deze website heb gemaakt <em>(een eerlijk verhaal)</em></h1>
+      <p class="dek">Een tekst in ontwikkeling, inclusief zijn eerdere versies en gesprekken in de kantlijn.</p>
+    </header>
+
+    <div class="article-layout">
+      <article class="article-body" id="article-body" aria-live="polite"></article>
+      <aside class="history" aria-label="Bewerkingsgeschiedenis">
+        <p class="history-label">Bewerkingsgeschiedenis</p>
+        <div class="knob-wrap">
+          <button class="knob" id="revision-knob" type="button" aria-label="Ga naar de vorige versie" style="--angle:135deg"><span class="knob-center" aria-hidden="true"></span></button>
+          <div class="version"><strong id="version-title">Eerste volledige versie</strong><span id="version-date">21 september 2026</span></div>
+        </div>
+        <p class="history-help">Klik op de draaiknop of gebruik de pijltjestoetsen. Alleen alinea’s die in deze versie anders zijn, veranderen.</p>
+        <div class="legend"><i aria-hidden="true"></i><span>nieuw in deze versie</span></div>
+      </aside>
+    </div>
+  </main>
+
+  <aside class="comment-panel" id="comment-panel" aria-hidden="true" aria-labelledby="panel-title">
+    <div class="panel-head"><div><p>Gesprek in de kantlijn</p><h2 id="panel-title">Reacties op deze alinea</h2></div><button class="close-panel" id="close-panel" type="button" aria-label="Sluit reacties">×</button></div>
+    <blockquote class="selected-quote" id="selected-quote"></blockquote>
+    <div class="thread" id="comment-thread"></div>
+    <form class="comment-form" id="comment-form">
+      <p class="replying-to" id="replying-to"></p>
+      <label for="comment-text">Anonieme reactie</label>
+      <textarea id="comment-text" required placeholder="Schrijf iets in de kantlijn…"></textarea>
+      <p class="form-note">Alleen lokaal opgeslagen in deze browser. Een reactie staat ‘los’ totdat iemand erop antwoordt.</p>
+      <button class="submit-comment" type="submit">Plaats reactie</button>
+    </form>
+  </aside>
+  <script src="./waarom.js"></script>
+</body>
+</html>
