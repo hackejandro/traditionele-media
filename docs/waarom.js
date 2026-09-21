@@ -58,30 +58,9 @@ const revisions = [
     }
   },
   {
-    id: 'first-draft',
-    title: 'Eerste aanzet',
-    date: '21 september 2026 · versie 2',
-    pageTitle: 'Waarom ik deze website heb gemaakt (een eerlijk verhaal)',
-    dek: 'Ik ga deze tekst mogelijk vaak updaten om minder dom te lijken, maar je kan alle versies terugkijken.',
-    paragraphs: {
-      p01: '<em>Uit pure luiheid vroeg ik ChatGPT om een artikel te schrijven over waarom ik deze site bouwde, maar de kwaliteit van schrijven was zo belabberd dat ik het zelf maar moet doen.</em>',
-      p02: 'Ik zou hier kunnen beginnen met een groots altruïstisch statement: ik bouwde deze site omdat ik me zorgen maak over een samenleving met gebrek aan gedeelde ervaring en realiteit.',
-      p03: 'Of omdat het in het huidige gefragmenteerde en gepolariseerde medialandschap zo moeilijk is om bij te blijven met relevante gebeurtenissen en ontwikkelingen omdat alles als even belangrijk gepresenteerd wordt.',
-      p04: 'Of dat social media stuk is, dat je én niet meer de bronnen en mensen ziet die je volgt, én dat het volume van content te groot is geworden, én dat personalisatie van aanbod door algoritmes ervoor zorgt dat je alleen nog maar ‘nieuwe’ dingen ziet binnen een beperkt kader van passieve signalen (‘oh vond je die video van een eend een beetje leuk, hier zijn oneindig veel videos van eenden!’).',
-      p05: 'En áls je dan nieuws ziet, is het meestal opinie van een columnist met heel veel volgers die vrijwel allemaal één recept volgen: de verontwaardigingsmachine aanzwengelen. Zonder het eens of oneens te zijn over de inhoud (echt geen zin in online discussies): of dat nou Sander Schimmelpenninck is die het feminismeknopje ontdekt heeft, Wierd Duk die wat dan ook doet, of Sheila Sistalting die signaleert hoe de rechterflank van de politiek eigenlijk allemaal onguur is, de functie is hetzelfde – mensen zijn boos <em>op</em> wat ze schrijven, of <em>over</em> wat ze schrijven.',
-      p06: 'Of dat het media-aanbod én verschraald is door eigendomsconcentratie (looking at you, Mediahuis en DPG), waarbinnen verschillende nieuwsbronnen op dezelfde systemen met dezelfde doelen draaien en gelijksoortige content opleveren; én te rijk in nét verschillende smaken om elke mogelijke doelgroep te bedienen, waardoor het als divers geïnteresseerd mens niet mogelijk is om aan je informationele trekken te komen bij één medium (tenzij je je 100% identificeert als Volkskrant-lezer? Bestaat zo iemand?) en alles achter paywalls zit en je geen geld hebt voor allemaal en dus maar gewoon weer teruggaat naar oneindige eenden.',
-      p07: 'Het zou allemaal niet onwaar zijn.',
-      p08: 'Maar het simpele antwoord is veel egoïstischer en arroganter, sorry.',
-      p09: 'Ik denk namelijk dat wat hier staat een manier is om dit allemaal enigszins beter te doen. En ik deel dat graag met jou, een mens op het internet.',
-      p10: 'Het idee – of algoritme, zo je wil – is heel simpel. De site houdt bij elke links worden gedeeld door Nederlandstalige accounts op Bluesky (of Eurosky, of W, etc) en of een link door meerdere afzonderlijke accounts wordt gedeeld. Vervolgens kijkt het of er bij meerdere van die gedeelde links reacties komen. Dan wordt die link meegenomen in het overzicht.',
-      p11: 'Het kijkt in feite naar onderwerpen die op meerdere plekken tegelijk nieuwsgierigheid, discussie of betrokkenheid oproepen.',
-      p12: 'Daarmee voorkom je een aantal dingen die extreem irritant zijn op de platforms waar de meeste mensen nu hun nieuws vandaan halen:'
-    }
-  },
-  {
     id: 'current',
     title: 'Eerste volledige versie',
-    date: '21 september 2026 · versie 3',
+    date: '21 september 2026 · versie 2',
     pageTitle: 'Waarom ik deze website heb gemaakt (een eerlijk verhaal)',
     dek: 'Ik ga deze tekst mogelijk vaak updaten om minder dom te lijken, maar je kan alle versies terugkijken.',
     paragraphs: {
@@ -128,6 +107,7 @@ const replyingTo = document.getElementById('replying-to');
 let revisionIndex = revisions.length - 1;
 let selectedParagraph = null;
 let replyParent = null;
+let revisionRenderToken = 0;
 let comments = loadComments();
 
 function loadComments() {
@@ -193,6 +173,7 @@ function initialRender() {
 
 function setRevision(nextIndex) {
   if (nextIndex === revisionIndex) return;
+  const renderToken = ++revisionRenderToken;
   const previous = revisions[revisionIndex];
   const next = revisions[nextIndex];
   revisionIndex = nextIndex;
@@ -207,11 +188,14 @@ function setRevision(nextIndex) {
     if (before === after) continue;
     p.classList.add('is-changing');
     window.setTimeout(() => {
+      if (renderToken !== revisionRenderToken) return;
       text.innerHTML = after;
       p.classList.toggle('is-absent', !after);
       p.classList.toggle('is-new', Boolean(after) && !before);
       p.classList.remove('is-changing');
-      if (after && !before) window.setTimeout(() => p.classList.remove('is-new'), 1100);
+      if (after && !before) window.setTimeout(() => {
+        if (renderToken === revisionRenderToken) p.classList.remove('is-new');
+      }, 1100);
     }, 180);
   }
   updateRevisionControls();
