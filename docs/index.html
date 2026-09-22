@@ -321,7 +321,8 @@
     document.getElementById('brand').addEventListener('click',showFeed);
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(!socket||socket.readyState>1))connect()});
   </script>
-  <script src="./app.js?v=20260903-local-demo"></script>
+  <script src="./analytics.js?v=20260922"></script>
+  <script src="./app.js?v=20260922-analytics"></script>
   <script>
     if(location.protocol==='file:'&&document.getElementById('link-list').children.length===0){
       const demoItems=[

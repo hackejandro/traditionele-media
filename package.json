@@ -13,7 +13,8 @@
     "worker:types": "wrangler types --config worker/wrangler.jsonc worker/worker-configuration.d.ts",
     "worker:check": "wrangler deploy --dry-run --config worker/wrangler.jsonc --outdir .worker-dist",
     "worker:dev": "wrangler dev --config worker/wrangler.jsonc",
-    "worker:deploy": "wrangler deploy --config worker/wrangler.jsonc"
+    "worker:deploy": "wrangler deploy --config worker/wrangler.jsonc",
+    "analytics:report": "wrangler d1 execute HISTORY_DB --remote --config worker/wrangler.jsonc --file worker/analytics-report.sql"
   },
   "dependencies": {
     "next": "16.2.6",
@@ -22,7 +23,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
-    "@cloudflare/workers-types": "4.20260515.1",
+    "@cloudflare/workers-types": "^5.20260922.1",
     "@openai/sites-vite-plugin": "^0.1.0 || ^0.2.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
@@ -37,7 +38,7 @@
     "typescript": "5.9.3",
     "vinext": "1.0.0-beta.3",
     "vite": "8.0.13",
-    "wrangler": "4.92.0"
+    "wrangler": "^4.135.0"
   },
   "type": "module"
 }

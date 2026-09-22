@@ -16,6 +16,9 @@ const MAX_THREAD_HYDRATIONS = 20;
 const PUBLIC_FEED = "https://traditionele.media/feed.json";
 const COMMENT_RATE_WINDOW_SECONDS = 10 * 60;
 const COMMENT_RATE_LIMIT = 5;
+const ANALYTICS_EVENTS = new Set(["pageview", "conversation_open"]);
+const ANALYTICS_PAGE_PATHS = new Set(["/", "/index.html", "/waarom.html", "/weekoverzicht.html"]);
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type WorkerEnv = Env & { GITHUB_TRIGGER_TOKEN: string };
 
 type Link = { url: string; title: string; description: string };
@@ -206,6 +209,94 @@ function visitorHeaders(request: Request): HeadersInit {
 
 function commentResponse(request: Request, body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: visitorHeaders(request) });
+}
+
+async function sha256Token(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function handleAnalytics(request: Request, env: Env): Promise<Response> {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: visitorHeaders(request) });
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405, headers: visitorHeaders(request) });
+  }
+
+  const origin = request.headers.get("Origin");
+  if (!origin || !SITE_ORIGINS.has(origin)) {
+    return Response.json({ error: "Forbidden" }, { status: 403, headers: visitorHeaders(request) });
+  }
+  const contentLength = Number(request.headers.get("Content-Length") ?? "0");
+  if (contentLength > 8192) {
+    return Response.json({ error: "Payload too large" }, { status: 413, headers: visitorHeaders(request) });
+  }
+
+  let value: unknown;
+  try {
+    value = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid payload" }, { status: 400, headers: visitorHeaders(request) });
+  }
+  if (!value || typeof value !== "object") {
+    return Response.json({ error: "Invalid payload" }, { status: 400, headers: visitorHeaders(request) });
+  }
+
+  const payload = value as Record<string, unknown>;
+  const visitorId = typeof payload.visitorId === "string" ? payload.visitorId : "";
+  const eventType = typeof payload.eventType === "string" ? payload.eventType : "";
+  const rawPagePath = typeof payload.pagePath === "string" ? payload.pagePath : "";
+  const pagePath = rawPagePath === "/index.html" ? "/" : rawPagePath;
+  if (!UUID_V4.test(visitorId) || !ANALYTICS_EVENTS.has(eventType) || !ANALYTICS_PAGE_PATHS.has(pagePath)) {
+    return Response.json({ error: "Invalid payload" }, { status: 400, headers: visitorHeaders(request) });
+  }
+
+  let conversationId: string | null = null;
+  let conversationUrl: string | null = null;
+  let conversationTitle: string | null = null;
+  if (eventType === "conversation_open") {
+    conversationId = typeof payload.conversationId === "string" ? payload.conversationId.slice(0, 200) : null;
+    conversationTitle = typeof payload.conversationTitle === "string" ? payload.conversationTitle.trim().slice(0, 300) : null;
+    if (typeof payload.conversationUrl !== "string" || payload.conversationUrl.length > 2048) {
+      return Response.json({ error: "Invalid conversation" }, { status: 400, headers: visitorHeaders(request) });
+    }
+    try {
+      const parsed = new URL(payload.conversationUrl);
+      if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Invalid protocol");
+      parsed.hash = "";
+      conversationUrl = parsed.toString();
+    } catch {
+      return Response.json({ error: "Invalid conversation" }, { status: 400, headers: visitorHeaders(request) });
+    }
+  }
+
+  const now = Date.now();
+  const eventDate = amsterdamDay(now);
+  const target = eventType === "pageview" ? pagePath : conversationUrl ?? "";
+  const dedupeKey = await sha256Token(`${visitorId}:${eventType}:${target}:${Math.floor(now / 5000)}`);
+  await env.HISTORY_DB.batch([
+    env.HISTORY_DB.prepare(
+      `INSERT INTO analytics_visitors(visitor_id, first_seen_date, first_seen_at, last_seen_at)
+       VALUES(?, ?, ?, ?)
+       ON CONFLICT(visitor_id) DO UPDATE SET last_seen_at = excluded.last_seen_at`,
+    ).bind(visitorId, eventDate, now, now),
+    env.HISTORY_DB.prepare(
+      `INSERT OR IGNORE INTO analytics_events(
+         dedupe_key, visitor_id, event_type, event_date, page_path,
+         conversation_id, conversation_url, conversation_title, created_at
+       ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      dedupeKey,
+      visitorId,
+      eventType,
+      eventDate,
+      pagePath,
+      conversationId,
+      conversationUrl,
+      conversationTitle,
+      now,
+    ),
+  ]);
+  return new Response(null, { status: 204, headers: visitorHeaders(request) });
 }
 
 function isCommentLocation(articleId: string, revisionId: string, paragraphId?: string): boolean {
@@ -844,6 +935,7 @@ function collector(env: Env): DurableObjectStub<CommonplaceCollector> {
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const path = new URL(request.url).pathname;
+    if (path === "/analytics") return handleAnalytics(request, env);
     if (path === "/comments") return handleComments(request, env);
     if (path === "/visitors") {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: visitorHeaders(request) });
